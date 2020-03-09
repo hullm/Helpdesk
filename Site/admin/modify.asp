@@ -42,7 +42,7 @@ If Application("VersionError") Then
 End If
 
 'Get the users logon name
-Set objNetwork = CreateObject("WSCRIPT.Network")   
+Set objNetwork = CreateObject("WSCRIPT.Network")
 strUser = objNetwork.UserName
 
 'Check and see if anonymous access is enabled
@@ -106,7 +106,7 @@ Sub AccessGranted
    strTech = Upload.Form("Tech")
    strCustom1Temp = Upload.Form("Custom1")
    strCustom2Temp = Upload.Form("Custom2")
-   
+
    If strStatus = "Auto Assigned" or strStatus = "New Assignment" Then
       strStatus = "In Progress"
    End If
@@ -115,7 +115,7 @@ Sub AccessGranted
    If strShowLog = "Yes" Then
       bolLog = True
    End If
-   
+
    'Get the log items for this ticket
    strSQL = "SELECT * FROM Log WHERE Ticket=" & intID & " ORDER BY ID"
    Set objLog = Application("Connection").Execute(strSQL)
@@ -125,18 +125,18 @@ Sub AccessGranted
    Else
       bolShowLogButton = False
    End If
-  
+
    strSQL = "Select Status" & vbCRLF
    strSQL = strSQL & "From Main" & vbCRLF
    strSQL = strSQL & "Where ID=" & intID
-         
+
    Set objRecordSet = Application("Connection").Execute(strSQL)
    If Not objRecordSet.BOF or Not objRecordSet.EOF Then
       strDBStatus = objRecordSet(0)
    Else
       strDBStatus = ""
    End If
-   
+
    'Check and see if we are sending and email to someone.
    If Upload.Form("cmdEMail") <> "" Then
       strEMail = Upload.Form("SendEMail")
@@ -152,19 +152,19 @@ Sub AccessGranted
             strCMD = "Save"
             Call Main()
          Case "Open Ticket"
-       
+
             'Update the log
             strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,UpdateDate,UpdateTime)"
             strSQL = strSQL & "VALUES (" & intID & ",'Ticket Reopened','" & strUser & "','" & Date() & "','" & Time() & "');"
             Application("Connection").Execute(strSQL)
-            
+
             strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,NewValue,UpdateDate,UpdateTime)"
             strSQL = strSQL & "VALUES (" & intID & ",'Tech Reassigned','" & strUser & "','" & strTech & "','" & Date() & "','" & Time() & "');"
             Application("Connection").Execute(strSQL)
 
             bolTicketReOpened = True
             Call Submit
-         Case "Update Tech"    
+         Case "Update Tech"
             bolKeepData = True
             bolTechUpdated = True
             UpdateTech
@@ -258,16 +258,16 @@ Sub AccessGranted
 End Sub
 
 Sub Main()
-   
+
    'This is what the user first sees when they come to this page or if they entered an invalid
    'value on the page.  It will get the data from the database and display it to the user.  If
-   'this page has already been submitted and there were errors it will show you what fields 
+   'this page has already been submitted and there were errors it will show you what fields
    'have errors.
-   
+
    Dim strDisplayName
-   
+
    On Error Resume Next
-   
+
    Const ID = 0
    Const Name = 1
    Const Location = 2
@@ -284,10 +284,10 @@ Sub Main()
    Const Custom1 = 13
    Const Custom2 = 14
    Const TicketViewed = 15
-   
+
    intID = request.querystring("ID")
    strUserAgent = Request.ServerVariables("HTTP_USER_AGENT")
-   
+
    'Set the zoom level
    If Request.Cookies("ZoomLevel") = "ZoomIn" Then
       If InStr(strUserAgent,"Silk") Then
@@ -296,8 +296,8 @@ Sub Main()
          intZoom = 1.9
       End If
    End If
-   
-   'Verify that the intID is a number.  If not then the user enter a non numeric value in for 
+
+   'Verify that the intID is a number.  If not then the user enter a non numeric value in for
    'a ticket number.  If that is the case then set intID to 0 so it will kick out as an error
    'to the user.
    intTest = CInt(intID)
@@ -305,28 +305,28 @@ Sub Main()
    If UCase(strType) <> "INTEGER" Then
       intID = "0"
    End If
-   
+
    strShowLog = Request.QueryString("ShowLog")
    If strShowLog = "Yes" Then
       bolLog = True
    End If
-   
+
    'Get the log items for this ticket
    strSQL = "SELECT * FROM Log WHERE Ticket=" & intID & " ORDER BY ID"
    Set objLog = Application("Connection").Execute(strSQL)
 
    'Build the SQL string that will get the data for the requested ticket
-   strSQL = "SELECT ID,DisplayName,Location,Email,Problem,SubmitDate,SubmitTime,Notes,Status,Category,Tech,LastUpdatedDate,LastUpdatedTime,Custom1,Custom2,TicketViewed" & vbCRLF
+   strSQL = "SELECT ID,DisplayName,Location,Email,Problem,SubmitDate,SubmitTime,Notes,Status,Category,Tech,LastUpdatedDate,LastUpdatedTime,Custom1,Custom2,TicketViewed,Name" & vbCRLF
    strSQL = strSQL & "FROM Main" & vbCRLF
    strSQL = strSQL & "WHERE ID=" & intID
-   
+
    'Execute the SQL string and assign the results to a Record Set
    Set objRecordSet = Application("Connection").Execute(strSQL)
-   
+
    If Not objRecordSet.EOF Then
-      bolTicketViewed = objRecordSet(TicketViewed) 
+      bolTicketViewed = objRecordSet(TicketViewed)
    End If
-   
+
    'Get the tech's email address if they were sent an update.
    If bolTechUpdated Then
       'Get the tech's email address
@@ -337,7 +337,7 @@ Sub Main()
       Set objTechSet = Application("Connection").Execute(strSQL)
       strTechEmail = objTechSet(0)
    End If
-   
+
    'This code will fix the display name so it matches what is in the database.
    Select Case UCase(strUser)
       Case "HELPDESK"
@@ -347,19 +347,19 @@ Sub Main()
       Case Else
          strDisplayName = GetFirstandLastName(strUser)
    End Select
-   
+
    If Not objRecordSet.EOF Then
       If strDisplayName = objRecordSet(Tech) And Not bolTicketViewed Then
          strSQL = "UPDATE Main SET TicketViewed=True WHERE ID=" & intID
          Application("Connection").Execute(strSQL)
          bolTicketViewed = True
-         
+
          strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,UpdateDate,UpdateTime)"
          strSQL = strSQL & "VALUES (" & intID & ",'Ticket Viewed','" & strUser & "','" & Date() & "','" & Time() & "');"
          Application("Connection").Execute(strSQL)
       End If
    End If
-      
+
    'Determin if the call is closed or has never been modified.  If so then get the date and time
    'from the system.  Otherwise get the last update date and time from the database.  This will
    'be used to calculate how log a call has been open.
@@ -369,8 +369,8 @@ Sub Main()
    Else
       strDate = objRecordSet(LastUpdatedDate)
       strTime = objRecordSet(LastUpdatedTime)
-   End If            
-   
+   End If
+
    'Calculate how long a call has been open
    strDays = DateDiff("d",objRecordSet("SubmitDate"),strDate)
    strMinutes = DateDiff("n",objRecordSet("SubmitTime"),strTime)
@@ -383,48 +383,48 @@ Sub Main()
    If Sgn(strMinutes) = -1 Then
       strMinutes = 60 + strMinutes
    End If
-   strTimeActive = strDays & "d " & Int(strHours) & "h " & strMinutes & "m" 
-   
+   strTimeActive = strDays & "d " & Int(strHours) & "h " & strMinutes & "m"
+
    'Verify that at least one ticket was returned.  There should never be more then one.
    'If no tickets are returned then an invalid ticket number was given.
    intCount = 0
    Do  Until objRecordSet.EOF
       intCount = intCount + 1
       objRecordSet.MoveNext
-   Loop   
+   Loop
    objRecordSet.MoveFirst
-   
+
    'If only one ticket is returned then display it's information
    If intCount = 1 Then
-   
+
       'Build the SQL string and execute it to populate the category pulldown list
       strSQL = "Select Category.Category" & vbCRLF
       strSQL = strSQL & "From Category" & vbCRLF
       strSQL = strSQL & "Where (((Category.Active)=Yes))" & vbCRLF
       strSQL = strSQL & "Order By Category.Category;"
       Set objCategorySet = Application("Connection").Execute(strSQL)
-      
+
       'Build the SQL string and execute it to populate the tech pulldown list
       strSQL = "Select Tech" & vbCRLF
       strSQL = strSQL & "From Tech" & vbCRLF
       strSQL = strSQL & "Where Active=Yes And UserLevel<>'Data Viewer'" & vbCRLF
       strSQL = strSQL & "Order By Tech.Tech;"
       Set objTechSet = Application("Connection").Execute(strSQL)
-      
+
       'Build the SQL string and execute it to populate the status pulldown list
       strSQL = "Select Status.Status" & vbCRLF
       strSQL = strSQL & "From Status" & vbCRLF
       Set objStatusSet = Application("Connection").Execute(strSQL)
-      
+
       'Build the SQL string and execute it to populate the location pulldown list
       strSQL = "Select Location.Location" & vbCRLF
       strSQL = strSQL & "From Location" & vbCRLF
       strSQL = strSQL & "Where (((Location.Active)=Yes))" & vbCRLF
       strSQL = strSQL & "Order By Location.Location;"
       Set objLocationSet = Application("Connection").Execute(strSQL)
-      
+
       strUserAgent = Request.ServerVariables("HTTP_USER_AGENT")
-      
+
       'Find out if the current user is either tracking the ticket or has requested an update
       strSQL = "SELECT Type FROM Tracking WHERE Ticket=" & intID & " And TrackedBy='" & strUser & "'"
       Set objTracking = Application("Connection").Execute(strSQL)
@@ -439,7 +439,7 @@ Sub Main()
          End Select
          objTracking.MoveNext
       Loop
-      
+
       'See if anyone has requested an updated on this ticket
       strSQL = "SELECT TrackedBy FROM Tracking WHERE Ticket=" & intID & " And Type='Request'"
       Set objUpdateRequest = Application("Connection").Execute(strSQL)
@@ -450,10 +450,10 @@ Sub Main()
          WatchVersion
       Else
          MainVersion
-      End If   
-      
+      End If
+
    Else%>
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
    <head>
       <title>HDL - Admin - <%=intID%></title>
@@ -491,7 +491,7 @@ Sub Main()
       Invalid Ticket Number entered.  <a href="index.asp">Go Back</a>
    </body>
 <% End If
-End Sub %>   
+End Sub %>
 
 <%
 Function IsMobile
@@ -514,7 +514,7 @@ Function IsMobile
          Response.Cookies("SiteVersion").Expires = Date() + 14
          Exit Function
    End Select
-   
+
    'Choose the site based on the cookie
    Select Case LCase(Request.Cookies("SiteVersion"))
       Case "full"
@@ -527,7 +527,7 @@ Function IsMobile
          IsMobile = False
          Exit Function
    End Select
-   
+
    'It's not mobile if the mobile version is turned off.
    If Not bolMobileVersion Then
       IsMobile = False
@@ -550,14 +550,14 @@ Function IsMobile
    ElseIf InStr(strUserAgent,"BlackBerry") Then
       IsMobile = True
    ElseIf InStr(strUserAgent,"Nintendo") Then
-      IsMobile = True 
+      IsMobile = True
    ElseIf InStr(strUserAgent,"PlayStation Vita") Then
       IsMobile = True
    Else
       IsMobile = False
-   End If 
+   End If
 
-End Function 
+End Function
 %>
 
 <%
@@ -567,7 +567,7 @@ Function IsWatch
    If Instr(strUserAgent,"Android") > 0 And InStr(strUserAgent,"Watch") > 0 Then
       IsWatch = True
    Else
-   
+
       'Choose the site based on the cookie
       Select Case LCase(Request.Cookies("SiteVersion"))
          Case "watch"
@@ -575,13 +575,13 @@ Function IsWatch
          Case Else
             IsWatch = False
       End Select
-   
+
    End If
 
-End Function 
+End Function
 %>
 
-<%Sub MainVersion 
+<%Sub MainVersion
 
    Const ID = 0
    Const Name = 1
@@ -599,7 +599,7 @@ End Function
    Const Custom1 = 13
    Const Custom2 = 14
    Const TicketViewed = 15
-   
+
    Dim intInputSize
 
    If InStr(strUserAgent,"Android") Or InStr(strUserAgent,"Silk") Then
@@ -607,13 +607,13 @@ End Function
    Else
       intInputSize = 36
    End If
-   
+
    If strStatus = "Auto Assigned" or strStatus = "New Assignment" Then
       strStatus = "In Progress"
    End If
-   
+
 %>
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
    <head>
       <title>HDL - Admin - <%=intID%></title>
@@ -667,8 +667,8 @@ End Function
             <% Else %>
                <img border="0" src="../themes/<%=objNameCheckSet(3)%>/images/closed.gif" width="20" height="20">
             <% End If %>
-         <% End If %>            
-<%       If bolTicketViewed Then %>   
+         <% End If %>
+<%       If bolTicketViewed Then %>
 <%          If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
                <img border="0" src="../themes/<%=Application("Theme")%>/images/viewed.gif" alt="Viewed by Tech" width="20" height="20">
 <%          Else %>
@@ -679,7 +679,7 @@ End Function
                <img border="0" src="../themes/<%=Application("Theme")%>/images/notviewed.gif" alt="Not Viewed by Tech" width="20" height="20">
 <%          Else %>
                <img border="0" src="../themes/<%=objNameCheckSet(3)%>/images/notviewed.gif" alt="Not Viewed by Tech" width="20" height="20">
-<%          End If %>            
+<%          End If %>
 <%       End If %>
 
             Ticket #<%=intID%></b><font face="Arial">
@@ -695,23 +695,23 @@ End Function
                <a href="view.asp<%=strReturnLink%>#<%=strLinkID%>">Back</a> |
 <%          End If %>
                <a href="index.asp">Home</a> |
-               <a href="view.asp?Filter=AllOpenTickets">Open Tickets</a> | 
-            <% If strRole <> "Data Viewer" Then %>   
-               <a href="view.asp?Filter=MyOpenTickets">Your Tickets</a> | 
-            <% End If %> 
+               <a href="view.asp?Filter=AllOpenTickets">Open Tickets</a> |
+            <% If strRole <> "Data Viewer" Then %>
+               <a href="view.asp?Filter=MyOpenTickets">Your Tickets</a> |
+            <% End If %>
             <% If Application("UseTaskList") And objNameCheckSet(5) <> "Deny" Then %>
-               <a class="linkbar" href="tasklist.asp">Tasks</a> | 
+               <a class="linkbar" href="tasklist.asp">Tasks</a> |
             <% End If %>
             <% If Application("UseStats") Then %>
-               <a href="stats.asp">Stats</a> | 
+               <a href="stats.asp">Stats</a> |
             <% End If %>
             <% If Application("UseDocs") And objNameCheckSet(6) <> "Deny" Then %>
-               <a class="linkbar" href="docs.asp">Docs</a> | 
+               <a class="linkbar" href="docs.asp">Docs</a> |
             <% End If %>
                <a href="settings.asp">Settings</a>
             <% If objNameCheckSet(1) = "Administrator" Then %>
                | <a href="setup.asp">Admin Mode</a>
-            <% End If %> 
+            <% End If %>
             <% If bolShowLogout Then %>
                | <a href="login.asp?action=logout">Log Out</a>
             <% End If %>
@@ -724,17 +724,17 @@ End Function
 
    <%    'Display any error messages if the form is missing anything
          If (strCMD = "Save") And (strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " " Or strTech = "") Then %>
-            <font class="missing">Please fill out highlighted fields...</font>        
+            <font class="missing">Please fill out highlighted fields...</font>
 <%          bolUpdated = False
          End If
          If (strCMD = "Save") And strStatus = "New Assignment" Then %>
             <font class="missing">Status cannot be "New Assignment"</font>
 <%          bolUpdated = False
-         End If 
+         End If
          If (strCMD = "Save") And strStatus = "Auto Assigned" Then %>
             <font class="missing">Status cannot be "Auto Assigned"</font>
 <%          bolUpdated = False
-         End If 
+         End If
          If bolUserUpdated Then %>
             <font class="information">EMail Sent to <%=objRecordSet(EMail)%></font>
 <%          bolUpdated = False
@@ -742,8 +742,8 @@ End Function
          If bolTechUpdated Then %>
             <font class="information">EMail Sent to <%=strTechEmail%></font>
 <%          bolUpdated = False
-         End If 
-         If strCMD = "Save" And bolUpdated And Not bolCallClosed And Not bolTicketReOpened Then 
+         End If
+         If strCMD = "Save" And bolUpdated And Not bolCallClosed And Not bolTicketReOpened Then
             If strTechEmail <> "" Then %>
                <font class="information">Ticket Updated - EMail Sent to <%=strTechEmail%></font>
 <%          Else %>
@@ -752,16 +752,16 @@ End Function
          End If
          If strCMD = "Save"  And bolUpdated And bolCallClosed Then %>
             <font class="information">Ticket Closed - EMail Sent to <%=objRecordSet(EMail)%></font></b>
-<%       End If  
+<%       End If
          If bolUpdateRequested Then %>
             <font class="information">EMail Sent to <%=strTechEMail%></font>
 <%       End If
          If bolMissingTech Then %>
             <font class="missing">No tech assigned...<%=strTechEMail%></font>
-<%       End If 
+<%       End If
          If bolTicketReOpened Then %>
             <font class="information">Ticket Reopened</font>
-<%       End If 
+<%       End If
          If bolTrackTicket Then %>
             <font class="information">You are now tracking this ticket</font>
 <%       End If
@@ -778,8 +778,8 @@ End Function
                <font class="missing"><%=strEMail%> is an invalid address</font>
 <%          End If %>
 <%       End If %>
-         
-         &nbsp;</td>	 
+
+         &nbsp;</td>
    		</tr>
    		<tr>
    			<td colspan="3">
@@ -792,16 +792,27 @@ End Function
    <%             Else %>
                      <td class="showborders" width="9%">Name:&nbsp;</td>
    <%             End If %>
-   
+
    					<td class="showborders" width="45%">
-   					
+
 
    <%             'Highlight the User label if it was blank when the form was submitted
                   If ((strCMD = "Save") And strUserTemp <> objRecordSet(Name)) or bolKeepData Then%>
-                     <input type="text" name="Name" size="<%=intInputSize%>" value="<%=strUserTemp%>"></td>
+                     <input type="text" name="Name" size="<%=intInputSize%>" value="<%=strUserTemp%>" >
    <%             Else%>
-   					   <input type="text" name="Name" size="<%=intInputSize%>" value="<%=objRecordSet(Name)%>"></td>
+   					   <input type="text" name="Name" size="<%=intInputSize%>" value="<%=objRecordSet(Name)%>" >
    <%             End If%>
+
+					<% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
+						<a href="https://helpdesk.lkgeorge.org/inventory/admin/user.asp?UserName=<%=objRecordSet(16)%>" target="_blank">
+							<img src="../themes/<%=Application("Theme")%>/images/inventory.png" width="20" height="20" align="top"/>
+						</a>
+					<% Else %>
+						<a href="https://helpdesk.lkgeorge.org/inventory/admin/user.asp?UserName=<%=objRecordSet(16)%>" target="_blank">
+							<img src="../themes/<%=objNameCheckSet(3)%>/images/inventory.png" width="20" height="20" align="top"/>
+						</a>
+					<% End If %>
+   					</td>
    					<td class="showborders" width="9%">Location:</td>
    					<td class="showborders" width="36%">
    					<select size="1" name="Location">
@@ -831,7 +842,7 @@ End Function
                         objLocationSet.MoveNext
                      Loop
                   End If%>
-                  
+
    					</select></td>
    				</tr>
    				<tr>
@@ -842,7 +853,7 @@ End Function
    <%             Else %>
                      <td class="showborders" width="9%">EMail:</td>
    <%             End If %>
-   
+
    					<td class="showborders" width="45%">
 
    <%             'If this is the first time the user is visiting the form the value will be pulled from
@@ -860,7 +871,7 @@ End Function
    <%             Else %>
                      <td class="showborders" width="9%">Category:</td>
    <%             End If %>
-   
+
    					<td class="showborders" width="36%">
    					<select size="1" name="Category">
 
@@ -889,7 +900,7 @@ End Function
                         objCategorySet.MoveNext
                      Loop
                   End If %>
-   
+
    					</select></td>
    				</tr>
    				<tr>
@@ -900,10 +911,10 @@ End Function
    <%             Else %>
                      <td class="showborders" width="9%">Tech:</td>
    <%             End If %>
-   
+
    					<td class="showborders" >
    					<select size="1" name="Tech">
-   					
+
    <%             'If the user is visiting this page for the first time the default item in the tech
                   'pulldown list will be the current value from the database.  If the user has submitted
                   'the form and their was an error then the default value will be what was submitted.  This
@@ -938,7 +949,7 @@ End Function
    <%             Else%>
                      <td class="showborders" >Status:</td>
    <%             End If%>
-   
+
    					<td class="showborders">
    					<select size="1" name="Status">
 
@@ -956,7 +967,7 @@ End Function
    <%                   End If
                         objStatusSet.MoveNext
                      Loop%>
-   
+
    <%             Else%>
    					   <option value="<%=objRecordSet(Status)%>"><%=objRecordSet(Status)%></option>
    <%                Do Until objStatusSet.EOF
@@ -966,17 +977,17 @@ End Function
    %>                      <option value="<%=objStatusSet(0)%>"><%=objStatusSet(0)%></option>
    <%                   End If
                         objStatusSet.MoveNext
-                     Loop   
+                     Loop
                   End If%>
-                  
+
    					</select></td>
    				</tr>
-	<% 		If Application("UseCustom1") or Application("UseCustom2") Then%>	
+	<% 		If Application("UseCustom1") or Application("UseCustom2") Then%>
                <tr>
-	<%          If Application("UseCustom1") Then%>   
+	<%          If Application("UseCustom1") Then%>
                   <td class="showborders" width="9%"><%=Application("Custom1Text")%>:</td>
                   <td class="showborders" ><%=objRecordSet(Custom1)%> <input type="hidden" name="Custom1" value="<%=objRecordSet(Custom1)%>"></td>
-	<%			   End If %>	
+	<%			   End If %>
    <% 			If Application("UseCustom2") Then %>
                   <td class="showborders" width="9%"><%=Application("Custom2Text")%>:</td>
                   <td class="showborders" ><%=objRecordSet(Custom2)%><input type="hidden" name="Custom2" value="<%=objRecordSet(Custom2)%>"></td>
@@ -984,15 +995,15 @@ End Function
 					<td class="showborders" width="9%">&nbsp;</td>
 					<td class="showborders" >&nbsp;</td>
    <%			   End If %>
-               </tr>   				
+               </tr>
    <%       End If %>
-				
+
    				<tr>
    <%                Set objFSO = CreateObject("Scripting.FileSystemObject")
                      If objFSO.FolderExists(Application("FileLocation") & "\" & intID) Then
                         strAttachmentFolder = Application("FileLocation") & "\" & intID
                         strAttachTech = ""
-                     End If  
+                     End If
                      If objFSO.FolderExists(Application("FileLocation") & "\" & intID & "-Tech") Then
                         strAttachmentFolder = Application("FileLocation") & "\" & intID & "-Tech"
                         strAttachTech = "-Tech"
@@ -1008,7 +1019,7 @@ End Function
                            End If
                         Next
                      Else %>
-                       
+
                   <%If (inStr(strUserAgent,"iPad") = False And inStr(strUserAgent,"iPhone") = False) And objRecordSet(Status) <> "Complete" Then
                      If InStr(strUserAgent,"Chrome") or InStr(strUserAgent,"Safari") Then %>
                         <td class="showborders" colspan="2">Problem:</td>
@@ -1024,8 +1035,8 @@ End Function
                   Else %>
                      <td class="showborders" colspan="4">Problem:</td>
                   <%End If%>
-                        
-                        
+
+
    <%                End If %>
                   </td>
    				</tr>
@@ -1049,20 +1060,20 @@ End Function
    <%             Else%>
                      <textarea rows="8" name="Notes" cols="90" style="width: 99%;"><%=objRecordSet(Notes)%></textarea></td>
    <%             End If%>
-   
+
    				</tr>
    				<tr>
    					<td class="showborders" colspan="4">
    					<table border="0" width="100%" cellspacing="0" cellpadding="0" id="table3">
    						<tr>
-   							<td colspan="2" class="showborders">Submitted on <%=objRecordSet(SubmitDate)%> at 
-   							<%=objRecordSet(SubmitTime)%> 
+   							<td colspan="2" class="showborders">Submitted on <%=objRecordSet(SubmitDate)%> at
+   							<%=objRecordSet(SubmitTime)%>
 
    <%                   'Check the last updated date in the database.  Display it if it is different then the default
                         If objRecordSet(LastUpdatedDate) = "6/16/1978" Then%>
                            - Never updated.
    <%                   Else%>
-                           - Updated <%=objRecordSet(LastUpdatedDate)%> at 
+                           - Updated <%=objRecordSet(LastUpdatedDate)%> at
    							<%=objRecordSet(LastUpdatedTime)%></td>
    <%                   End If %>
                      </tr>
@@ -1073,7 +1084,7 @@ End Function
                      <form enctype="multipart/form-data" method="POST" accept-charset="utf-8" action="modify.asp?ID=<%=objRecordSet("ID")%>&<%=Right(strReturnLink,Len(strReturnLink)-1)%>">
                   <% End If %>
                         <td class="showborders" colspan="3">
-                           Send this ticket to an additional email address 
+                           Send this ticket to an additional email address
    <%                   If Upload.Form("cmdEMail") = "" Then %>
                            <input type="text" name="SendEMail" size="30">
    <%                   Else %>
@@ -1085,32 +1096,32 @@ End Function
                      </tr>
                      <tr>
                      <td valign="top">
-   <%                If bolShowLogButton Then      
+   <%                If bolShowLogButton Then
                         If bolLog Then %>
                            <input type="submit" value="Hide Log" name="cmdSubmit"><input type="submit" value="User History" name="cmdSubmit"></td>
    <%                   Else %>
                            <input type="submit" value="Show Log" name="cmdSubmit"><input type="submit" value="User History" name="cmdSubmit"></td>
-   <%                   End If 
-                     End If%>   
+   <%                   End If
+                     End If%>
    							<td>
 							<div align="right">
-     
+
 <%             If objRecordSet(Status) <> "Complete" Then %>
-<%                If bolTracking Then%>                     
+<%                If bolTracking Then%>
                      <input type="submit" value="Stop Tracking" name="cmdSubmit">
-<%                Else %>                        
+<%                Else %>
                      <input type="submit" value="Track Ticket" name="cmdSubmit">
 <%                End If %>
 <%                If bolRequest Then%>
                      <input type="submit" value="Cancel Update Request" name="cmdSubmit">
 <%                Else %>
-<%                   If objRecordSet(Tech) <> "" Then %>                     
+<%                   If objRecordSet(Tech) <> "" Then %>
                         <input type="submit" value="Request Update" name="cmdSubmit">
-<%                   Else %>   
+<%                   Else %>
                         <input type="submit" disabled="disabled" value="Request Update" name="cmdSubmit">
-<%                   End If %>   
+<%                   End If %>
 <%                End If %>
-<%                If strRole <> "Data Viewer" Then %> 
+<%                If strRole <> "Data Viewer" Then %>
 <%                   If objRecordSet(Tech) <> "" Then %>
                         <input type="submit" value="Update Tech" name="cmdSubmit">
 <%                   Else %>
@@ -1119,25 +1130,25 @@ End Function
                      <input type="submit" value="Update User" name="cmdSubmit">
 <%                End If %>
 <%             End If %>
-                  <input type="button" value="Print" onClick="window.open('print.asp?ID=<%=intID%>','newwin');">
 <%             If strRole <> "Data Viewer" Then %>
-<%                If objRecordSet(Status) = "Complete" Then %>	             
+<%                If objRecordSet(Status) = "Complete" Then %>
                      <input type="submit" value="Open Ticket" name="cmdSubmit">
 <%                Else %>
                      <input type="submit" value="Save" name="cmdSubmit">
 <%                End If
                End If %>
+                  <input type="button" value="Print" onClick="window.open('print.asp?ID=<%=intID%>','newwin');">
    					&nbsp;</div></td>
    						</tr>
    					</table>
    					</td>
    				</tr>
-   <%       If bolLog Then %>       
+   <%       If bolLog Then %>
                <tr>
                   <td colspan="4">
                      Activity Log for Ticket #<%=intID%>
                      <ul>
-   <%          Do Until objLog.EOF 
+   <%          Do Until objLog.EOF
                   Select Case objLog(2)
                      Case "Location Changed"%>
                         <li>On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
@@ -1145,19 +1156,19 @@ End Function
    <%                Case "EMail Changed" %>
                         <li>On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
                         the users email from <%=objLog(4)%> to <%=objLog(5)%>.</li>
-   <%                Case "Category Changed" 
+   <%                Case "Category Changed"
                         If objLog(4) = " " Then %>
                            <li>On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
                            the category to <%=objLog(5)%>.</li>
    <%                   Else %>
                            <li>On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
                            the category from <%=objLog(4)%> to <%=objLog(5)%>.</li>
-   <%                   End If                        
+   <%                   End If
                      Case "Tech Changed" %>
                         <li>On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
-                        the assigned tech from <%=objLog(4)%> to <%=objLog(5)%>. 
-   <%                   If objLog(8) <> "" Then 
-   
+                        the assigned tech from <%=objLog(4)%> to <%=objLog(5)%>.
+   <%                   If objLog(8) <> "" Then
+
                            'Calculate how long a task was assigned to the last t
                            strDays = Int(objLog(8)/1440)
                            strHours = Int((objLog(8)-strDays*1440)/60)
@@ -1192,9 +1203,9 @@ End Function
    <%                Case "Request Update Complete" %>
                         <li>On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> updated the ticket after a request for update.</li>
    <%                Case "Auto Assigned" %>
-                        <li>Ticket Auto Assigned to <%=objLog(5)%>. 
-   <%                   If objLog(8) <> "" Then 
-   
+                        <li>Ticket Auto Assigned to <%=objLog(5)%>.
+   <%                   If objLog(8) <> "" Then
+
                            'Calculate how long a task was assigned to the lastt
                            strDays = Int(objLog(8)/1440)
                            strHours = Int((objLog(8)-strDays*1440)/60)
@@ -1209,15 +1220,15 @@ End Function
                         <li>On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> reopened the ticket.</li>
    <%                Case "Tech Reassigned" %>
                         <li>On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> assigned the reopened ticket to <%=objLog(5)%>.
-   <%                   If objLog(8) <> "" Then 
-   
+   <%                   If objLog(8) <> "" Then
+
                            'Calculate how long a task was assigned to the last t
                            strDays = Int(objLog(8)/1440)
                            strHours = Int((objLog(8)-strDays*1440)/60)
                            strMinutes = (objLog(8)-(strDays*1440)-(strHours*60))
                            strTaskTime = Int(strDays) & "d " & Int(strHours) & "h " & Int(strMinutes) & "m" %>
                            <ul><li>The task was assigned to <%=objLog(5)%> for <%=strTaskTime%>.</li></ul>
-   <%                   End If %>      
+   <%                   End If %>
                         </li>
    <%                Case "Assigned" %>
                         <li>On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> assigned the ticket to <%=objLog(5)%>.</li>
@@ -1236,7 +1247,7 @@ End Function
    <%             End Select
                   objLog.MoveNext
                Loop %>
-                     </ul>   
+                     </ul>
                   </td>
                </tr>
    <%       End If%>
@@ -1245,13 +1256,13 @@ End Function
    		</tr>
    	</table>
    	</div>
-   		
+
    		<p>&nbsp;</p>
    	</form>
    </body>
 <%End Sub%>
 
-<%Sub MobileVersion 
+<%Sub MobileVersion
 
    Const ID = 0
    Const Name = 1
@@ -1269,190 +1280,198 @@ End Function
    Const Custom1 = 13
    Const Custom2 = 14
    Const TicketViewed = 15
-   
+
    Dim intInputSize
 
    If InStr(strUserAgent,"Nexus 7") And Request.Cookies("ZoomLevel") <> "ZoomIn" Then
-      intInputSize = 50
+      intInputSize = 22
    ElseIf InStr(strUserAgent,"iPhone") Then
       intInputSize = 31
    ElseIf InStr(strUserAgent,"Android") Or InStr(strUserAgent,"Silk") Then
       intInputSize = 22
    Else
       intInputSize = 25
-   End If   
-   
+   End If
+
    If strStatus = "Auto Assigned" or strStatus = "New Assignment" Then
       strStatus = "In Progress"
    End If
-   
+
 %>
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
    <html>
    <head>
       <title>HDL - Admin - <%=intID%></title>
-   <% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>   
+   <% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
       <link rel="stylesheet" type="text/css" href="../themes/<%=Application("Theme")%>/<%=Application("Theme")%>.css" />
    <% Else %>
       <link rel="stylesheet" type="text/css" href="../themes/<%=objNameCheckSet(3)%>/<%=objNameCheckSet(3)%>.css" />
    <% End If %>
 	   <link rel="apple-touch-icon-precomposed" href="<%=Application("IconLocation")%>/ipadadminicon.png" />
-      <link rel="shortcut icon" href="<%=Application("IconLocation")%>" />
+      <link rel="shortcut icon" href="<%=Application("IconLocation")%>/helpdesk.ico" />
    <% If Request.Cookies("ZoomLevel") = "ZoomIn" Then %>
       <meta name="viewport" content="width=100,user-scalable=no,initial-scale=<%=intZoom%>" />
    <% ElseIf InStr(strUserAgent,"Windows Phone") Then %>
-      <meta name="viewport" content="width=375,user-scalable=no" /> 
+      <meta name="viewport" content="width=375,user-scalable=no" />
    <% Else %>
-      <meta name="viewport" content="width=device-width,user-scalable=no" /> 
+      <meta name="viewport" content="width=device-width,user-scalable=no" />
    <% End If %>
       <meta name="theme-color" content="#<%=Application("AndroidBarColor")%>">
    </head>
-   <body>
-      <center>
-         <% If objRecordSet(Status) = "Complete" Then %>
-            <% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
-               <img border="0" src="../themes/<%=Application("Theme")%>/images/closed.gif" width="15" height="15">
-            <% Else %>
-               <img border="0" src="../themes/<%=objNameCheckSet(3)%>/images/closed.gif" width="15" height="15">
-            <% End If %>
-         <% End If %>            
-<%       If bolTicketViewed Then %>   
-<%          If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
-               <img border="0" src="../themes/<%=Application("Theme")%>/images/viewed.gif" alt="Viewed by Tech" width="15" height="15">
-<%          Else %>
-               <img border="0" src="../themes/<%=objNameCheckSet(3)%>/images/viewed.gif" alt="Viewed by Tech" width="15" height="15">
-<%          End If %>
-<%       Else %>
-<%          If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
-               <img border="0" src="../themes/<%=Application("Theme")%>/images/notviewed.gif" alt="Not Viewed by Tech" width="15" height="15">
-<%          Else %>
-               <img border="0" src="../themes/<%=objNameCheckSet(3)%>/images/notviewed.gif" alt="Not Viewed by Tech" width="15" height="15">
-<%          End If %>            
-<%       End If %>
-      <b>Ticket #<%=intID%></b> - <%=strTimeActive%>
-      </center>
-      <center>
-      <table align="center">
+   <body class="Mobile">
+
+      <center><b><%=Application("SchoolName")%> Help Desk Admin</b></center>
+
+      <div>
+   		<ul class="NavBar" align="center">
+   			<li><a href="index.asp">Home</a></li>
+   			<li><a href="view.asp?Filter=AllOpenTickets">Open Tickets</a></li>
+   		<% If strRole <> "Data Viewer" Then %>
+   				<li><a href="view.asp?Filter=MyOpenTickets">Your Tickets</a></li>
+   		<% End If %>
+   		</ul>
+   	</div>
+
+      <div class="TwoColumnCard">
+      	<div class="TwoColumnCardTitle">
+				<% If objRecordSet(Status) = "Complete" Then %>
+					<% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
+						<img border="0" src="../themes/<%=Application("Theme")%>/images/closed.gif" width="15" height="15">
+					<% Else %>
+						<img border="0" src="../themes/<%=objNameCheckSet(3)%>/images/closed.gif" width="15" height="15">
+					<% End If %>
+				<% End If %>
+	<%       If bolTicketViewed Then %>
+	<%          If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
+						<img border="0" src="../themes/<%=Application("Theme")%>/images/viewed.gif" alt="Viewed by Tech" width="15" height="15">
+	<%          Else %>
+						<img border="0" src="../themes/<%=objNameCheckSet(3)%>/images/viewed.gif" alt="Viewed by Tech" width="15" height="15">
+	<%          End If %>
+	<%       Else %>
+	<%          If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
+						<img border="0" src="../themes/<%=Application("Theme")%>/images/notviewed.gif" alt="Not Viewed by Tech" width="15" height="15">
+	<%          Else %>
+						<img border="0" src="../themes/<%=objNameCheckSet(3)%>/images/notviewed.gif" alt="Not Viewed by Tech" width="15" height="15">
+	<%          End If %>
+	<%       End If %>
+				Ticket #<%=intID%> - <%=strTimeActive%>
+				<% If strLinkBack = "Yes" Then %>
+            	<div class="ButtonOne">
+						<a href="view.asp<%=strReturnLink%>#<%=strLinkID%>">
+						<% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
+							<image src="../themes/<%=Application("Theme")%>/images/back.png" width="20" height="20" title="Return to Search Results"/>
+						<%	Else %>
+							<image src="../themes/<%=objNameCheckSet(3)%>/images/back.png" width="20" height="20" title="Return to Search Results"/>
+						<% End If %>
+						</a>
+					</div>
+				<% End If %>
+
+   		</div>
+
    <% If strReturnLink = "" Then %>
          <form enctype="multipart/form-data" method="POST" accept-charset="utf-8" action="modify.asp?ID=<%=objRecordSet("ID")%>">
    <% Else %>
          <form enctype="multipart/form-data" method="POST" accept-charset="utf-8" action="modify.asp?ID=<%=objRecordSet("ID")%>&<%=Right(strReturnLink,Len(strReturnLink)-1)%>">
    <% End If %>
-      
-         <tr><td colspan="2" width="<%=Application("MobileSiteWidth")%>"><hr /></td></tr>
-         
-         <tr>
-            <td colspan="2" width="<%=Application("MobileSiteWidth")%>">
-               <div align="center">
-   <%          If strLinkBack = "Yes" Then %>
-                  <input type="button" value="<" onclick="window.location.href='view.asp<%=strReturnLink%>#<%=strLinkID%>'">  
-   <%          End If%>
-                  <input type="button" value="Home" onclick="window.location.href='index.asp'">
-                  <input type="button" value="Open Tickets" onclick="window.location.href='view.asp?Filter=AllOpenTickets'">  
-            <% If strRole <> "Data Viewer" Then %>   
-                  <input type="button" value="Your Tickets" onclick="window.location.href='view.asp?Filter=MyOpenTickets'">  
-            <% End If %>
- 
-               </div>
-            </td>
-         </tr>
-         <tr><td colspan="2" width="<%=Application("MobileSiteWidth")%>"><hr /></td></tr>
-      </table>
-      <table align="center">   
-         <tr><td colspan="2" width="<%=Application("MobileSiteWidth")%>">
-   <%    'Display any error messages if the form is missing anything
-         If (strCMD = "Save") And (strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " " Or strTech = "") Then %>
-            <font class="missing">Please fill out highlighted fields...</font>        
-<%          bolUpdated = False
-         End If
-         If (strCMD = "Save") And strStatus = "New Assignment" Then %>
-            <font class="missing">Status cannot be "New Assignment"</font>
-<%          bolUpdated = False
-         End If 
-         If (strCMD = "Save") And strStatus = "Auto Assigned" Then %>
-            <font class="missing">Status cannot be "Auto Assigned"</font>
-<%          bolUpdated = False
-         End If 
-         If bolUserUpdated Then %>
-            <font class="information">EMail Sent to <%=objRecordSet(EMail)%></font>
-<%          bolUpdated = False
-         End If
-         If bolTechUpdated Then %>
-            <font class="information">EMail Sent to <%=strTechEmail%></font>
-<%          bolUpdated = False
-         End If 
-         If strCMD = "Save" And bolUpdated And Not bolCallClosed And Not bolTicketReOpened Then 
-            If strTechEmail <> "" Then %>
-               <font class="information">Ticket Updated - EMail Sent to <%=strTechEmail%></font>
-<%          Else %>
-               <font class="information">Ticket Updated</font>
-<%          End If
-         End If
-         If strCMD = "Save"  And bolUpdated And bolCallClosed Then %>
-            <font class="information">Ticket Closed - EMail Sent to <%=objRecordSet(EMail)%></font></b>
-<%       End If
-         If bolUpdateRequested Then %>
-            <font class="information">EMail Sent to <%=strTechEMail%></font>
-<%       End If
-         If bolMissingTech Then %>
-            <font class="missing">No tech assigned...<%=strTechEMail%></font>
-<%       End If 
-         If bolTicketReOpened Then %>
-            <font class="information">Ticket Reopened</font>
-<%       End If 
-         If bolTrackTicket Then %>
-            <font class="information">You are now tracking this ticket</font>
-<%       End If
-         If bolTrackTicketOff Then %>
-            <font class="information">You are no longer tracking this ticket</font>
-<%       End If            
-         If bolCancelledUpdateRequest Then %>
-            <font class="information">Request for update cancelled</font>
-<%       End If %>
 
-<%       If Upload.Form("cmdEMail") <> "" Then %>
-<%          If IsEmailValid(strEMail) Then %>
-               <font class="information">EMail Sent to <%=strEMail%></font>
-<%          Else %>
-               <font class="missing"><%=strEMail%> is an invalid address</font>
-<%          End If %>
-<%       End If %>
+		<%    'Display any error messages if the form is missing anything
+				If (strCMD = "Save") And (strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " " Or strTech = "") Then %>
+					<div Class="TwoColumnCardMerged missing">Please fill out highlighted fields...</div>
+	<%          bolUpdated = False
+				End If
+				If (strCMD = "Save") And strStatus = "New Assignment" Then %>
+					<div Class="TwoColumnCardMerged missing">Status cannot be "New Assignment"</div>
+	<%          bolUpdated = False
+				End If
+				If (strCMD = "Save") And strStatus = "Auto Assigned" Then %>
+					<div Class="TwoColumnCardMerged missing">Status cannot be "Auto Assigned"</div>
+	<%          bolUpdated = False
+				End If
+				If bolUserUpdated Then %>
+					<font class="information">EMail Sent to <%=objRecordSet(EMail)%></div>
+	<%          bolUpdated = False
+				End If
+				If bolTechUpdated Then %>
+					<div Class="TwoColumnCardMerged information">EMail Sent to <%=strTechEmail%></div>
+	<%          bolUpdated = False
+				End If
+				If strCMD = "Save" And bolUpdated And Not bolCallClosed And Not bolTicketReOpened Then
+					If strTechEmail <> "" Then %>
+						<div Class="TwoColumnCardMerged information">Ticket Updated - EMail Sent to <%=strTechEmail%></div>
+	<%          Else %>
+						<div Class="TwoColumnCardMerged information">Ticket Updated</div>
+	<%          End If
+				End If
+				If strCMD = "Save"  And bolUpdated And bolCallClosed Then %>
+					<div Class="TwoColumnCardMerged information">Ticket Closed - EMail Sent to <%=objRecordSet(EMail)%></div></b>
+	<%       End If
+				If bolUpdateRequested Then %>
+					<div Class="TwoColumnCardMerged information">EMail Sent to <%=strTechEMail%></div>
+	<%       End If
+				If bolMissingTech Then %>
+					<div Class="TwoColumnCardMerged missing">No tech assigned...<%=strTechEMail%></div>
+	<%       End If
+				If bolTicketReOpened Then %>
+					<div Class="TwoColumnCardMerged information">Ticket Reopened</div>
+	<%       End If
+				If bolTrackTicket Then %>
+					<div Class="TwoColumnCardMerged information">You are now tracking this ticket</div>
+	<%       End If
+				If bolTrackTicketOff Then %>
+					<div Class="TwoColumnCardMerged information">You are no longer tracking this ticket</div>
+	<%       End If
+				If bolCancelledUpdateRequest Then %>
+					<div Class="TwoColumnCardMerged information">Request for update cancelled</div>
+	<%       End If %>
 
-         </td></tr>
-      </table>
-   <% Do  Until objRecordSet.EOF %> 
-      <table align="center"><tr><td width="<%=Application("MobileSiteWidth")%>">
-      <table align="center">
-         <tr><td class="showborders">Name: </td>
-            <td class="showborders">
-               <%=objRecordSet(1)%>               
-               <input type="hidden" name="Name" value="<%=Replace(objRecordSet(1),"""","")%>">
-               <input type="hidden" name="EMail" value="<%=Replace(objRecordSet(3),"""","")%>">
-               <input type="hidden" name="Problem" value="<%=Replace(objRecordSet(4),"""","")%>">
-            <% If Application("UseCustom1") Then %>   
-                  <input type="hidden" name="Custom1" value="<%=Replace(objRecordSet(13),"""","")%>">
-            <% End If %>
-            <% If Application("UseCustom2") Then %> 
-               <input type="hidden" name="Custom2" value="<%=Replace(objRecordSet(14),"""","")%>">
-            <% End If %>
-            </td>
-         </tr>
-   <%    If Application("UseCustom1") Then %> 
-            <tr><td class="showborders"><%=Application("Custom1Text")%>: </td><td class="showborders"><%=objRecordSet(13)%></td></tr>
+	<%       If Upload.Form("cmdEMail") <> "" Then %>
+	<%          If IsEmailValid(strEMail) Then %>
+						<div Class="TwoColumnCardMerged information">EMail Sent to <%=strEMail%></div>
+	<%          Else %>
+						<div Class="TwoColumnCardMerged missing"><%=strEMail%> is an invalid address</div>
+	<%          End If %>
+	<%       End If %>
+
+   <% Do  Until objRecordSet.EOF %>
+   		<input type="hidden" name="Name" value="<%=Replace(objRecordSet(1),"""","")%>">
+			<input type="hidden" name="EMail" value="<%=Replace(objRecordSet(3),"""","")%>">
+			<input type="hidden" name="Problem" value="<%=Replace(objRecordSet(4),"""","")%>">
+			<% If Application("UseCustom1") Then %>
+					<input type="hidden" name="Custom1" value="<%=Replace(objRecordSet(13),"""","")%>">
+			<% End If %>
+			<% If Application("UseCustom2") Then %>
+					<input type="hidden" name="Custom2" value="<%=Replace(objRecordSet(14),"""","")%>">
+			<% End If %>
+     		<div>
+         	<div Class="TwoColumnCardColumn1">Name: </div>
+            <div Class="TwoColumnCardColumn2"><%=objRecordSet(1)%></div>
+         </div>
+
+   <%    If Application("UseCustom1") Then %>
+         <div>
+         	<div Class="TwoColumnCardColumn1"><%=Application("Custom1Text")%>: </div>
+            <div Class="TwoColumnCardColumn2"><%=objRecordSet(13)%></div>
+         </div>
    <%    End If
-         If Application("UseCustom2") Then %>			
-            <tr><td class="showborders"><%=Application("Custom2Text")%>: </td><td class="showborders"><%=objRecordSet(14)%></td></tr>
+         If Application("UseCustom2") Then %>
+         <div>
+         	<div Class="TwoColumnCardColumn1"><%=Application("Custom2Text")%>: </div>
+         	<div Class="TwoColumnCardColumn2"><%=objRecordSet(14)%></div>
+         </div>
    <%    End If %>
-         <tr>
+         <div>
+         	<div Class="TwoColumnCardColumn1">
 <%          'Highlight the Tech label if it was blank when the form was submitted
             If (strCMD = "Save") And (strTech = "") Then %>
-               <td class="showborders"><font class="missing">Tech:</font></td>
+               <font class="missing">Tech:</font>
 <%          Else %>
-               <td class="showborders">Tech:</td>
+               Tech:
 <%          End If %>
-            <td class="showborders">
-              <select size="1" name="Tech">
+				</div>
+            <div Class="TwoColumnCardColumn2">
+              <select Class="TwoColumnCard" size="1" name="Tech">
 <%            If ((strCMD = "Save") And strTech <> objRecordSet(Tech)) or bolKeepData Then%>
                   <option value="<%=strTech%>"><%=strTech%></option>
 <%                Do Until objTechSet.EOF
@@ -1475,12 +1494,12 @@ End Function
                   Loop
                End If%>
                </select>
-            </td>
-         </tr>
-         <tr>
-            <td class="showborders">Location:</td>
-            <td class="showborders">
-               <select size="1" name="Location">
+            </div>
+         </div>
+         <div>
+            <div Class="TwoColumnCardColumn1">Location: </div>
+            <div Class="TwoColumnCardColumn2">
+               <select Class="TwoColumnCard" size="1" name="Location">
 
    <%             'If the user is visiting this page for the first time the default item in the location
                   'pulldown list will be the current value from the database.  If the user has submitted
@@ -1506,19 +1525,21 @@ End Function
    <%                   End If
                         objLocationSet.MoveNext
                      Loop
-                  End If%>         
+                  End If%>
    			   </select>
-            </td>
-         <tr>
-         <tr>
-   <%    'Highlight the Category label if it was blank when the form was submitted
-         If (strCMD = "Save") And (strCategory = " ") Then %>
-            <td class="showborders" width="9%"><font class="missing">Category:</font></td>
-   <%    Else %>
-            <td class="showborders" width="9%">Category:</td>
-   <%    End If %>
-            <td class="showborders">
-               <select size="1" name="Category">
+            </div>
+         </div>
+         <div>
+         	<div Class="TwoColumnCardColumn1">
+		<%    'Highlight the Category label if it was blank when the form was submitted
+				If (strCMD = "Save") And (strCategory = " ") Then %>
+					<font class="missing">Category:</font>
+		<%    Else %>
+				  Category:
+		<%    End If %>
+				</div>
+            <div Class="TwoColumnCardColumn2">
+               <select Class="TwoColumnCard" size="1" name="Category">
 
    <%             'If the user is visiting this page for the first time the default item in the category
                   'pulldown list will be the current value from the database.  If the user has submitted
@@ -1546,18 +1567,19 @@ End Function
                      Loop
                   End If %>
    			   </select>
-            </td>
-         <tr>
-         <tr>
-         
-   <%    'Highlight the Status label if it was blank when the form was submitted
-         If (strCMD = "Save") And (strStatus = "New Assignment" or strStatus = "Auto Assigned") Then%>
-            <td class="showborders" ><font class="missing">Status:</font></td>
-   <%    Else%>
-            <td class="showborders" >Status:</td>
-   <%    End If%>
-            <td class="showborders">
-               <select size="1" name="Status">
+            </div>
+         </div>
+         <div>
+         	<div Class="TwoColumnCardColumn1">
+		<%    'Highlight the Status label if it was blank when the form was submitted
+				If (strCMD = "Save") And (strStatus = "New Assignment" or strStatus = "Auto Assigned") Then%>
+					<font class="missing">Status:</font>
+		<%    Else%>
+					Status:
+		<%    End If%>
+   			</div>
+            <div Class="TwoColumnCardColumn2">
+               <select Class="TwoColumnCard" size="1" name="Status">
 
    <%             'If the user is visiting this page for the first time the default item in the Status
                   'pulldown list will be the current value from the database.  If the user has submitted
@@ -1573,7 +1595,7 @@ End Function
    <%                   End If
                         objStatusSet.MoveNext
                      Loop%>
-   
+
    <%             Else%>
    					   <option value="<%=objRecordSet(Status)%>"><%=objRecordSet(Status)%></option>
    <%                Do Until objStatusSet.EOF
@@ -1583,141 +1605,142 @@ End Function
    %>                      <option value="<%=objStatusSet(0)%>"><%=objStatusSet(0)%></option>
    <%                   End If
                         objStatusSet.MoveNext
-                     Loop   
-                  End If%>   
+                     Loop
+                  End If%>
    				</select>
-            </td>
-         </tr>
+            </div>
+         </div>
 <%       Set objFSO = CreateObject("Scripting.FileSystemObject")
          If objFSO.FolderExists(Application("FileLocation") & "\" & intID) Then
             strAttachmentFolder = Application("FileLocation") & "\" & intID
             strAttachTech = ""
-         End If  
+         End If
          If objFSO.FolderExists(Application("FileLocation") & "\" & intID & "-Tech") Then
             strAttachmentFolder = Application("FileLocation") & "\" & intID & "-Tech"
             strAttachTech = "-Tech"
          End If
          If objFSO.FolderExists(strAttachmentFolder) Then %>
-            <tr>
-               <td class="showborders">Attachment:&nbsp;</td>
-               <td class="showborders">
+            <div>
+         		<div Class="TwoColumnCardColumn1">Attachment: </div>
+               <div Class="TwoColumnCardColumn2">
 <%          Set objFolder = objFSO.GetFolder(strAttachmentFolder)
             For Each objFile in objFolder.Files
                If UCase(objFile.Name) <> "THUMBS.DB" Then
                   Response.Write "<a href=""download.asp?folder=" & intID & strAttachTech & "&file=" & objFile.Name & """>Click Here</a>&nbsp;"
                End If
             Next %>
-            </tr>
+            	</div>
+            </div>
 <%       End If %>
-         <tr>
-            <td colspan="2" class="showborders">Problem:</td>
-         </tr>
-         <tr>
-            <td colspan="2" class="showborders">
-               <%=Replace(FixURLs(objRecordSet(Problem),1),vbCRLF,"<br />")%>
-            </td>
-         </tr>
-         <tr>
-            <td colspan="2" class="showborders">Notes:</td>
-         <tr>
-         <tr><td colspan="2" class="showborders">
+         <div Class="TwoColumnCardMerged"><b>Problem:</b>
+         	<%=Replace(FixURLs(objRecordSet(Problem),1),vbCRLF,"<br />")%>
+         </div>
+			<div Class="TwoColumnCardMerged"><b>Notes:</b>
    <%       'If the user is visiting this page for the first time the default item in the Notes
             'text box will be the current value from the database.  If the user has submitted
             'the form and their was an error then the default value will be what was submitted.  This
             'way the form won't reset it's value if there was an error.
             If (strCMD = "Save") or bolKeepData Then%>
-               <textarea rows="8" name="Notes" cols="90" style="width: 98%;"><%=strNotes%></textarea>
+               <textarea Class="TwoColumnCard" rows="8" name="Notes" cols="90" style="width: 98%;"><%=strNotes%></textarea>
    <%       Else%>
-               <textarea rows="8" name="Notes" cols="90" style="width: 98%;"><%=objRecordSet(Notes)%></textarea>
+               <textarea Class="TwoColumnCard" rows="8" name="Notes" cols="90" style="width: 98%;"><%=objRecordSet(Notes)%></textarea>
    <%       End If%>
-         </td></tr>
-         
-         <td class="showborders" colspan="3">
-            Send this ticket to an additional email <br />
-<%       If Upload.Form("cmdEMail") = "" Then %>
-            <input type="text" name="SendEMail" size="<%=intInputSize%>">
-<%       Else %>
-            <input type="text" name="SendEMail" value="<%=Upload.Form("SendEMail")%>" size="<%=intInputSize%>">
-<%       End If %>
-            <input type="submit" value="EMail Ticket" name="cmdEMail" style="float: right">
-         </td>     
+         </div>
 
-         <tr>
-            <td colspan="2" class="showborders">Submitted on <%=objRecordSet(SubmitDate)%> at 
-            <%=objRecordSet(SubmitTime)%> 
+         <div Class="TwoColumnCardMerged">
+				Send this ticket to an additional email <br />
+				<% If Upload.Form("cmdEMail") = "" Then %>
+						<input Class="TwoColumnCard" type="text" name="SendEMail" size="<%=intInputSize%>">
+				<% Else %>
+						<input Class="TwoColumnCard" type="text" name="SendEMail" value="<%=Upload.Form("SendEMail")%>" size="<%=intInputSize%>">
+				<% End If %>
+					<input type="submit" value="EMail Ticket" name="cmdEMail" style="float: right">
+			</div>
+         <hr />
+         <div Class="TwoColumnCardMerged">
+            <td colspan="2" class="showborders">Submitted on <%=objRecordSet(SubmitDate)%> at
+            <%=objRecordSet(SubmitTime)%>
 
 <%          'Check the last updated date in the database.  Display it if it is different then the default
             If objRecordSet(LastUpdatedDate) = "6/16/1978" Then%>
                - Never updated.
 <%                   Else%>
-               - Updated <%=objRecordSet(LastUpdatedDate)%> at 
+               - Updated <%=objRecordSet(LastUpdatedDate)%> at
             <%=objRecordSet(LastUpdatedTime)%></td>
 <%                   End If %>
-         </tr>
-         <tr><td colspan="2" width="<%=Application("MobileSiteWidth")%>"><hr /></td></tr>
-         <tr><td colspan="2" align="center">
-<%       If objRecordSet(Status) <> "Complete" Then %>
-<%                If bolTracking Then%>                     
-                     <input type="submit" value="Stop Tracking" name="cmdSubmit">
-<%                Else %>                        
-                     <input type="submit" value="Track Ticket" name="cmdSubmit">
-<%                End If %>
-<%                If bolRequest Then%>
-                     <input type="submit" value="Cancel Update Request" name="cmdSubmit">
-<%                Else %>
-<%                   If objRecordSet(Tech) <> "" Then %>                     
-                        <input type="submit" value="Request Update" name="cmdSubmit">
-<%                   Else %>   
-                        <input type="submit" disabled="disabled" value="Request Update" name="cmdSubmit">
-<%                   End If %>   
-<%                End If %>
-                  </td></tr>
-                  <tr><td colspan="2"><hr /></td></tr>
-                  <tr><td colspan="2" align="center">
-<%                If strRole <> "Data Viewer" Then %> 
-<%                   If objRecordSet(Tech) <> "" Then %>
-                        <input type="submit" value="Update Tech" name="cmdSubmit">
-<%                   Else %>
-                        <input type="submit" disabled="disabled" value="Update Tech" name="cmdSubmit">
-<%                   End If %>
-                     <input type="submit" value="Update User" name="cmdSubmit">
-<%                End If %>
-                  </td></tr>
-                  <tr><td colspan="2"><hr /></td></tr>
-                  <tr><td colspan="2"> 
-<%             End If %>
-<%             If strRole <> "Data Viewer" Then %>
-              
-<%                If objRecordSet(Status) = "Complete" Then 
-                     If bolLog Then%>
-                        <input type="submit" value="Hide Log" name="cmdSubmit" style="float: left">
-                  <% Else %>
-                        <input type="submit" value="Show Log" name="cmdSubmit" style="float: left">
-                  <% End If %>
-                     <input type="submit" value="User History" name="cmdSubmit">
-                     <input type="submit" value="Open Ticket" name="cmdSubmit" style="float: right">
-<%                Else 
-                     If bolLog Then%>
-                        <input type="submit" value="Hide Log" name="cmdSubmit">
-                  <% Else %>
-                        <input type="submit" value="Show Log" name="cmdSubmit">
-                  <% End If %>
-                     <input type="submit" value="User History" name="cmdSubmit">
-                     <input type="submit" value="Save" name="cmdSubmit" style="float: right">
-<%                End If
-               End If %>
-   <%    objRecordSet.MoveNext
-      Loop %>
-      </form>
-      </td></tr>
-      
-<%       If bolLog Then %>     
-  
+         </div>
+         <hr />
+         <% If objRecordSet(Status) <> "Complete" Then %>
+         		<div Class="TwoColumnCardMerged">
+         		<center>
+				<% If bolTracking Then%>
+						<input type="submit" value="Stop Tracking" name="cmdSubmit">
+				<% Else %>
+						<input type="submit" value="Track Ticket" name="cmdSubmit">
+				<% End If %>
+				<% If bolRequest Then%>
+						<input type="submit" value="Cancel Update Request" name="cmdSubmit">
+				<% Else %>
+					<% If objRecordSet(Tech) <> "" Then %>
+							<input type="submit" value="Request Update" name="cmdSubmit">
+					<% Else %>
+							<input type="submit" disabled="disabled" value="Request Update" name="cmdSubmit">
+					<% End If %>
+				<% End If %>
+					</center>
+					</div>
+			<% End If %>
+
+         <% If strRole <> "Data Viewer" Then %>
+         		<div Class="TwoColumnCardMerged">
+         		<center>
+				<% If objRecordSet(Tech) <> "" Then %>
+						<input type="submit" value="Update Tech" name="cmdSubmit">
+				<% Else %>
+						<input type="submit" disabled="disabled" value="Update Tech" name="cmdSubmit">
+				<% End If %>
+					<input type="submit" value="Update User" name="cmdSubmit">
+					</center>
+					</div>
+			<% End If %>
+      	<hr />
+         <% If strRole <> "Data Viewer" Then %>
+         			<div Class="TwoColumnCardMerged">
+				<% If objRecordSet(Status) = "Complete" Then
+						If bolLog Then %>
+							<input type="submit" value="Hide Log" name="cmdSubmit" style="float: left">
+					<% Else %>
+							<input type="submit" value="Show Log" name="cmdSubmit" style="float: left">
+					<% End If %>
+						<input type="submit" value="User History" name="cmdSubmit" style="float: left">
+						<input type="submit" value="Open Ticket" name="cmdSubmit" style="float: left">
+				<% Else
+						If bolLog Then %>
+							<input type="submit" value="Hide Log" name="cmdSubmit">
+					<% Else %>
+							<input type="submit" value="Show Log" name="cmdSubmit">
+					<% End If %>
+						<input type="submit" value="User History" name="cmdSubmit">
+						<input type="submit" value="Save" name="cmdSubmit" style="float: right">
+				<% End If %>
+					</div>
+			<% End If %>
+
+		</div>
+
+
+
+					<% objRecordSet.MoveNext
+					Loop %>
+					</form>
+
+<%       If bolLog Then %>
+
             <tr><td colspan="2"><hr /></td></tr>
             <tr>
                <td colspan="2">
                   Activity Log for Ticket #<%=intID%> <br />
-<%          Do Until objLog.EOF 
+<%          Do Until objLog.EOF
                Select Case objLog(2)
                   Case "Location Changed"%>
                      - On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
@@ -1725,18 +1748,18 @@ End Function
 <%                Case "EMail Changed" %>
                      - On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
                      the users email from <%=objLog(4)%> to <%=objLog(5)%>. <br />
-<%                Case "Category Changed" 
+<%                Case "Category Changed"
                      If objLog(4) = " " Then %>
                         - On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
                         the category to <%=objLog(5)%>. <br />
 <%                   Else %>
                         - On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
                         the category from <%=objLog(4)%> to <%=objLog(5)%>. <br />
-<%                   End If                        
+<%                   End If
                   Case "Tech Changed" %>
                      - On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
                      the assigned tech from <%=objLog(4)%> to <%=objLog(5)%>. <br />
-<%                   If objLog(8) <> "" Then 
+<%                   If objLog(8) <> "" Then
 
                         'Calculate how long a task was assigned to the last t
                         strDays = Int(objLog(8)/1440)
@@ -1745,7 +1768,7 @@ End Function
                         strTaskTime = Int(strDays) & "d " & Int(strHours) & "h " & Int(strMinutes) & "m" %>
                         &nbsp;&nbsp;&nbsp;- The task was assigned to <%=objLog(5)%> for <%=strTaskTime%>.
 <%                   End If %>
-                     
+
 <%                Case "Status Changed" %>
                      - On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> changed
                      the status from <%=objLog(4)%> to <%=objLog(5)%>. <br />
@@ -1771,7 +1794,7 @@ End Function
                      - On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> updated the ticket after a request for update. <br />
 <%                Case "Auto Assigned" %>
                      - Ticket Auto Assigned to <%=objLog(5)%>. <br />
-<%                   If objLog(8) <> "" Then 
+<%                   If objLog(8) <> "" Then
 
                         'Calculate how long a task was assigned to the lastt
                         strDays = Int(objLog(8)/1440)
@@ -1786,7 +1809,7 @@ End Function
                      - On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> reopened the ticket. <br />
 <%                Case "Tech Reassigned" %>
                      - On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> assigned the reopened ticket to <%=objLog(5)%>. <br />
-<%                   If objLog(8) <> "" Then 
+<%                   If objLog(8) <> "" Then
 
                         'Calculate how long a task was assigned to the last t
                         strDays = Int(objLog(8)/1440)
@@ -1794,7 +1817,7 @@ End Function
                         strMinutes = (objLog(8)-(strDays*1440)-(strHours*60))
                         strTaskTime = Int(strDays) & "d " & Int(strHours) & "h " & Int(strMinutes) & "m" %>
                         &nbsp;&nbsp;&nbsp;- The task was assigned to <%=objLog(5)%> for <%=strTaskTime%>. <br />
-<%                   End If %>      
+<%                   End If %>
 <%                Case "Assigned" %>
                         - On <%=objLog(6)%> at <%=objLog(7)%>&nbsp;<%=GetFirstandLastName(objLog(3))%> assigned the ticket to <%=objLog(5)%>. <br />
 <%                Case "Ticket Tracked" %>
@@ -1810,17 +1833,17 @@ End Function
             </tr>
 <%       End If%>
 
-      
-      
+
+
       </table>
       </td></tr>
       </table>
       </center>
    </body>
-   </html> 
-<%End Sub%>   
+   </html>
+<%End Sub%>
 
-<%Sub WatchVersion 
+<%Sub WatchVersion
 
    Const ID = 0
    Const Name = 1
@@ -1840,12 +1863,12 @@ End Function
    Const TicketViewed = 15
 %>
 
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
    <html>
    <head>
       <title>HDL - Admin</title>
-   <% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>   
+   <% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
       <link rel="stylesheet" type="text/css" href="../themes/<%=Application("Theme")%>/<%=Application("Theme")%>.css" />
    <% Else %>
       <link rel="stylesheet" type="text/css" href="../themes/<%=objNameCheckSet(3)%>/<%=objNameCheckSet(3)%>.css" />
@@ -1856,8 +1879,8 @@ End Function
    <% If Request.Cookies("ZoomLevel") = "ZoomIn" Then %>
       <meta name="viewport" content="width=100,user-scalable=no,initial-scale=1.9" />
    <% Else %>
-      <meta name="viewport" content="width=device-width,user-scalable=no" /> 
-   <% End If %> 
+      <meta name="viewport" content="width=device-width,user-scalable=no" />
+   <% End If %>
    </head>
       <div align="right">
          <%=intID%></b> - <%=strTimeActive%>
@@ -1871,47 +1894,47 @@ End Function
          <font class="information">EMail Sent to <%=strTechEmail%></font>
    <%    bolUpdated = False
       End If %>
-         
+
    <% If strReturnLink = "" Then %>
          <form enctype="multipart/form-data" method="POST" accept-charset="utf-8" action="modify.asp?ID=<%=objRecordSet("ID")%>">
    <% Else %>
          <form enctype="multipart/form-data" method="POST" accept-charset="utf-8" action="modify.asp?ID=<%=objRecordSet("ID")%>&<%=Right(strReturnLink,Len(strReturnLink)-1)%>">
    <% End If %>
-   
+
    <% Do Until objRecordSet.EOF %>
          <input type="hidden" name="Name" value="<%=Replace(objRecordSet(Name),"""","")%>">
          <input type="hidden" name="EMail" value="<%=Replace(objRecordSet(EMail),"""","")%>">
          <input type="hidden" name="Problem" value="<%=Replace(objRecordSet(Problem),"""","")%>">
          <input type="hidden" name="Tech" value="<%=Replace(objRecordSet(Tech),"""","")%>">
-      <% If Application("UseCustom1") Then %>   
+      <% If Application("UseCustom1") Then %>
             <input type="hidden" name="Custom1" value="<%=Replace(objRecordSet(13),"""","")%>">
       <% End If %>
-      <% If Application("UseCustom2") Then %> 
+      <% If Application("UseCustom2") Then %>
          <input type="hidden" name="Custom2" value="<%=Replace(objRecordSet(14),"""","")%>">
       <% End If %>
-         
-         <div align="center"> 
-            
+
+         <div align="center">
+
       <% If strLinkBack = "Yes" Then %>
             <input type="button" value="Back" onclick="window.location.href='view.asp<%=strReturnLink%>#<%=strLinkID%>'"> <br /> <br />
       <% End If%>
-            
-      <% If bolTracking Then%>                     
+
+      <% If bolTracking Then%>
             <input type="submit" value="Stop Tracking" name="cmdSubmit"> <br /> <br />
-      <% Else %>                        
+      <% Else %>
             <input type="submit" value="Track Ticket" name="cmdSubmit"> <br /> <br />
       <% End If %>
       <% If bolRequest Then%>
             <input type="submit" value="Cancel Update Request" name="cmdSubmit"> <br /> <br />
       <% Else %>
-         <% If objRecordSet(Tech) <> "" Then %>                     
+         <% If objRecordSet(Tech) <> "" Then %>
                <input type="submit" value="Request Update" name="cmdSubmit"> <br /> <br />
-         <% Else %>   
+         <% Else %>
                <input type="submit" disabled="disabled" value="Request Update" name="cmdSubmit"> <br /> <br />
          <% End If %>
       <% End If %>
-      
-      <% If strRole <> "Data Viewer" Then %> 
+
+      <% If strRole <> "Data Viewer" Then %>
       <%    If objRecordSet(Tech) <> "" Then %>
                <input type="submit" value="Update Tech" name="cmdSubmit"> <br /> <br />
       <%    Else %>
@@ -1920,8 +1943,8 @@ End Function
             <input type="submit" value="Update User" name="cmdSubmit"> <br />
       <% End If %>
          </div>
-      
-      <% objRecordSet.MoveNext 
+
+      <% objRecordSet.MoveNext
       Loop %>
       </form>
       <hr />
@@ -1933,23 +1956,23 @@ End Function
 
    'This is a simple page that will update the database with the new settings then display
    'a message to the user letting them know.
-   
+
    On Error Resume Next
-   
+
    Const cdoSendUsingPickup = 1
-   
+
    Dim intID, strUserName, strEMail, strLocation, strCategory, strProblem, strNotes, strStatus
    Dim strTech, strDate, strTime, objRegExp, strNewUserName, strNewEMail, strNewLocation
    Dim strNewCategory, strNewProblem, strNewNotes, strSQL, objShell, strMessage, objMessage
-   Dim objTechSet, objConf, strSubmitDate, strSubmitTime, strOpenTime, strDisplayName 
+   Dim objTechSet, objConf, strSubmitDate, strSubmitTime, strOpenTime, strDisplayName
    Dim strCustom1, strCustom2, strOldTech, strCurrentUser, objTrackingSet
    Dim objOldTechSet, strOldTechEmail, objFSO, objFolder, objFile, strAttachment
-   Dim intFileCount, strAttachmentTech, objOldAssignment, strOpenAssignmentTime   
-   
+   Dim intFileCount, strAttachmentTech, objOldAssignment, strOpenAssignmentTime
+
    strCurrentUser = GetFirstandLastName(strUser)
-   
+
    intID = Request.Querystring("ID")
-   
+
    'If there is an attachment save it to a folder on the server.
    intFileCount = 0
    Set objFSO = CreateObject("Scripting.FileSystemObject")
@@ -1965,7 +1988,7 @@ End Function
       objFSO.DeleteFolder Application("FileLocation") & "\" & intID & "-Tech"
    End If
    Set objFSO = Nothing
-   
+
    'Get the information from the forms and address bar and assign them to variables
    strEMail = Upload.Form("EMail")
    strLocation = Upload.Form("Location")
@@ -1981,7 +2004,7 @@ End Function
    strDisplayName = Upload.Form("Name")
    strDate = Date
    strTime = Time
-   
+
    If strStatus = "Auto Assigned" Or strStatus = "New Assignment" Then
       strStatus = "In Progress"
    End If
@@ -1990,10 +2013,10 @@ End Function
    strSQL = "SELECT SubmitDate, SubmitTime, Name, Custom1, Custom2, Tech" & vbCRLF
    strSQL = strSQL & "FROM Main" & vbCRLF
    strSQL = strSQL & "WHERE ID=" & intID
-   
+
    'Execute the SQL string and assign the results to a Record Set
    Set objRecordSet = Application("Connection").Execute(strSQL)
-   
+
    strSubmitDate = objRecordSet(0)
    strSubmitTime = objRecordSet(1)
    strUsername = objRecordSet(2)
@@ -2003,21 +2026,21 @@ End Function
 
    strOpenTime = DateDiff("n",strSubmitDate,strDate)
    strOpenTime = strOpenTime + DateDiff("n",strSubmitTime,strTime)
-   
+
    'Create the Regular Expression object and set it's properties.
    Set objRegExp = New RegExp
    objRegExp.Pattern = "'"
    objRegExp.Global = True
 
    'Use the regular expression to change a ' to a '' so the SQL Insert command will work.
-   'The value will be assigned to a new variable so the old one can still be displayed   
+   'The value will be assigned to a new variable so the old one can still be displayed
    strNewUserName = objRegExp.Replace(strUserName,"''")
    strNewEMail = objRegExp.Replace(strEMail,"''")
    strNewLocation = objRegExp.Replace(strLocation,"''")
    strNewCategory = objRegExp.Replace(strCategory,"''")
    strNewProblem = objRegExp.Replace(strProblem,"''")
    strNewNotes = objRegExp.Replace(strNotes,"''")
-   
+
    'Find out if the current user is either tracking the ticket or has requested an update
    strSQL = "SELECT Type FROM Tracking WHERE Ticket=" & intID
    Set objTracking = Application("Connection").Execute(strSQL)
@@ -2036,21 +2059,21 @@ End Function
    'See if anyone has requested an updated on this ticket
    strSQL = "SELECT TrackedBy FROM Tracking WHERE Ticket=" & intID & " And Type='Request'"
    Set objUpdateRequest = Application("Connection").Execute(strSQL)
-   
+
    'Send an email to the tech if the call isn't assigned to them anymore.  Only if someone else changes it.
    If strOldTech <> strTech And strOldTech <> strCurrentUser And strOldTech <> "" Then
       TicketReassigned
    End If
-   
+
    'Send the tech an email if they have just been assigned this call
-   If strOldTech <> strTech And strStatus <> "Complete" Then   
+   If strOldTech <> strTech And strStatus <> "Complete" Then
       TicketAssigned
-      
+
       If strTech = "Erwin Brace" And Application("TSCHelpDesk") <> "" Then
 
          'Build the SQL string that will add the data to the TSC database
          strSQL = "Insert Into Main (Name,DisplayName,Email,Location,Problem,SubmitDate,SubmitTime,Category,Status,Tech,LastUpdatedDate,TicketViewed) " & _
-         "values ('help','" & Replace(Upload.Form("Name"),"'","''") & "','help@wswheboces.org','BOCES','" & strNewProblem & vbCRLF & vbCRLF & _ 
+         "values ('help','" & Replace(Upload.Form("Name"),"'","''") & "','help@wswheboces.org','BOCES','" & strNewProblem & vbCRLF & vbCRLF & _
          "Original Ticket Information" & vbCRLF & _
          "Ticket Number: " & intID & vbCRLF & _
          "User: " & Replace(strDisplayName,"'","''") & vbCRLF & _
@@ -2061,126 +2084,126 @@ End Function
          "','" & strDate & "','" & strTime & "',' ','New Assignment','','6/16/78',False)"
 
          Dim objConnection, strConnection
-      
+
          'Create the connection to the TSC database
          Set objConnection = CreateObject("ADODB.Connection")
          strConnection = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" & Application("TSCHelpDesk") & ";"
          objConnection.Open strConnection
          objConnection.Execute(strSQL)
          Set objConnection = Nothing
-      
+
       End If
-      
+
    End If
-   
+
    'Send the User an email if the call was just closed
-   If strStatus = "Complete" = True Then 
+   If strStatus = "Complete" = True Then
       TicketClosed
    End If
-  
+
    'If someone has requested an update send them the update
    If Not objUpdateRequest.EOF And Not bolUpdateRequested Then
       SendRequestedUpdate
    End If
- 
+
    'If the ticket is being tracked send the person tracking it an update
    If bolTracking And Not bolTrackTicket Then
-      SendTrackingEMail 
+      SendTrackingEMail
    End If
-   
+
    UpdateLog
-   
+
    If strStatus = "Complete" Then
       strSQL = "SELECT ID,UpdateDate,UpdateTime" & vbCRLF
       strSQL = strSQL & "FROM Log" & vbCRLF
       strSQL = strSQL & "WHERE (NewValue='" & strOldTech & "' AND Ticket=" & intID & ")" & vbCRLF
       strSQL = strSQL & "ORDER BY ID DESC"
-      
+
       Set objOldAssignment = Application("Connection").Execute(strSQL)
-     
+
       If NOT objOldAssignment.EOF Then
          strOpenAssignmentTime = DateDiff("n",objOldAssignment(1),Date())
          strOpenAssignmentTime = strOpenAssignmentTime + DateDiff("n",objOldAssignment(2),Time())
-      
+
          strSQL = "UPDATE Log" & vbCRLF
          strSQL = strSQL & "SET TaskTime='" & strOpenAssignmentTime & "'" & vbCRLF
          strSQL = strSQL & "WHERE ID=" & objOldAssignment(0)
          Application("Connection").Execute(strSQL)
-         
+
       End If
-      
+
       'Build the SQL string that will remove from the database who is tracking the ticket
       strSQL = "DELETE FROM Tracking" & vbCRLF
       strSQL = strSQL & "WHERE Ticket=" & intID
       Application("Connection").Execute(strSQL)
-      
+
       'Set the ticket as viewed
       strSQL = "UPDATE Main SET TicketViewed=True WHERE ID=" & intID
       Application("Connection").Execute(strSQL)
-      
+
       bolCallClosed = True
    End If
-   
+
    'Build the SQL string that will update the data in the database
    strSQL = "Update Main" & vbCRLF
    strSQL = strSQL & "Set Name = '" & strNewUserName & "',EMail = '" & strNewEMail & "',Location = '" & _
    strNewLocation & "',Category = '" & strNewCategory & "',Notes = '" & _
-   strNewNotes & "',Status = '" & strStatus & "',Tech = '" & strTech & "',LastUpdatedDate = '" & _ 
+   strNewNotes & "',Status = '" & strStatus & "',Tech = '" & strTech & "',LastUpdatedDate = '" & _
    strDate & "',LastUpdatedTime = '" & strTime & "',OpenTime = '" & strOpenTime & "'" & vbCRLF
    strSQL = strSQL & "WHERE (((Main.ID)=" & intID & "));"
 
    Application("Connection").Execute(strSQL)
    bolUpdated = True
-   
-   If strOldTech <> strTech And strStatus <> "Complete" Then   
+
+   If strOldTech <> strTech And strStatus <> "Complete" Then
       API
    End If
-   
+
    Call Main
 End Sub%>
 
 <%Sub UpdateLog
-   
+
    Dim objOldData, strCurrentUser, strOldLocation, strOldEmail, strOldCategory
    Dim strOldTech, strOldStatus, strOldNotes, objOldAssignment, strOpenAssignmentTime
-   
+
    On Error Resume Next
-     
+
    strCurrentUser = strUser
-   
+
    'Build the SQL string that will get the old data from the database
    strSQL = "SELECT Location,EMail,Category,Tech,Status,Notes" & vbCRLF
    strSQL = strSQL & "FROM Main" & vbCRLF
    strSQL = strSQL & "WHERE ID=" & intID
-   
+
    Set objOldData = Application("Connection").Execute(strSQL)
-   
+
    strOldLocation = objOldData(0)
    strOldEmail = objOldData(1)
    strOldCategory = objOldData(2)
    strOldTech = objOldData(3)
    strOldStatus = objOldData(4)
    strOldNotes = objOldData(5)
-   
+
    'See what has changed so it can be logged
    If strOldTech <> strTech Then
       strSQL = "SELECT ID,UpdateDate,UpdateTime" & vbCRLF
       strSQL = strSQL & "FROM Log" & vbCRLF
-      strSQL = strSQL & "WHERE NewValue='" & strOldTech & "' AND Ticket=" & intID & " AND (Type='Assigned' Or Type='Auto Assigned' Or Type='New Ticket' Or Type='Tech Reassigned' Or NewValue='Complete' or Type='Tech Changed')" & vbCRLF 
+      strSQL = strSQL & "WHERE NewValue='" & strOldTech & "' AND Ticket=" & intID & " AND (Type='Assigned' Or Type='Auto Assigned' Or Type='New Ticket' Or Type='Tech Reassigned' Or NewValue='Complete' or Type='Tech Changed')" & vbCRLF
       strSQL = strSQL & "ORDER BY ID DESC"
-      
+
       Set objOldAssignment = Application("Connection").Execute(strSQL)
-      
+
       If NOT objOldAssignment.EOF Then
          strOpenAssignmentTime = DateDiff("n",objOldAssignment(1),Date())
          strOpenAssignmentTime = strOpenAssignmentTime + DateDiff("n",objOldAssignment(2),Time())
-      
+
          strSQL = "UPDATE Log" & vbCRLF
          strSQL = strSQL & "SET TaskTime='" & strOpenAssignmentTime & "'" & vbCRLF
          strSQL = strSQL & "WHERE ID=" & objOldAssignment(0)
          Application("Connection").Execute(strSQL)
       End If
-      
+
       If strOldTech = "" Then
          strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,OldValue,NewValue,UpdateDate,UpdateTime)"
          strSQL = strSQL & "VALUES (" & intID & ",'Assigned','" & strCurrentUser & "','" & strOldTech & "','" & strTech & "','" & Date() & "','" & Time() & "');"
@@ -2190,29 +2213,29 @@ End Sub%>
          strSQL = strSQL & "VALUES (" & intID & ",'Tech Changed','" & strCurrentUser & "','" & strOldTech & "','" & strTech & "','" & Date() & "','" & Time() & "');"
          Application("Connection").Execute(strSQL)
       End If
-      
+
       strSQL = "UPDATE Main SET TicketViewed=False WHERE ID=" & intID
       Application("Connection").Execute(strSQL)
-   End If   
-   
+   End If
+
    If strOldLocation <> strLocation Then
       strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,OldValue,NewValue,UpdateDate,UpdateTime)"
       strSQL = strSQL & "VALUES (" & intID & ",'Location Changed','" & strCurrentUser & "','" & strOldLocation & "','" & strLocation & "','" & Date() & "','" & Time() & "');"
       Application("Connection").Execute(strSQL)
    End If
-   
+
    If strOldEmail <> strEMailTemp Then
       strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,OldValue,NewValue,UpdateDate,UpdateTime)"
       strSQL = strSQL & "VALUES (" & intID & ",'EMail Changed','" & strCurrentUser & "','" & strOldEMail & "','" & strEMailTemp & "','" & Date() & "','" & Time() & "');"
       Application("Connection").Execute(strSQL)
    End If
-   
+
    If strOldCategory <> strCategory Then
       strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,OldValue,NewValue,UpdateDate,UpdateTime)"
       strSQL = strSQL & "VALUES (" & intID & ",'Category Changed','" & strCurrentUser & "','" & strOldCategory & "','" & strCategory & "','" & Date() & "','" & Time() & "');"
       Application("Connection").Execute(strSQL)
    End If
-   
+
    If (strOldNotes <> strNotes) Or (Len(strNotes) > 1 And IsNull(strOldNotes)) Then
       If IsNull(strOldNotes) Then
          strOldNotes = ""
@@ -2221,24 +2244,24 @@ End Sub%>
       strSQL = strSQL & "VALUES (" & intID & ",'Notes Updated','" & strCurrentUser & "','" & "" & "','" & "" & "','" & Date() & "','" & Time() & "');"
       Application("Connection").Execute(strSQL)
    End If
-   
+
    If strOldStatus <> strStatus Then
       strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,OldValue,NewValue,UpdateDate,UpdateTime)"
       strSQL = strSQL & "VALUES (" & intID & ",'Status Changed','" & strCurrentUser & "','" & strOldStatus & "','" & strStatus & "','" & Date() & "','" & Time() & "');"
       Application("Connection").Execute(strSQL)
    End If
-   
+
 End Sub%>
 
 <%Sub UpdateTech
-   
+
    Const cdoSendUsingPickup = 1
-   
+
    Dim intID, strUserEMail, strLocation, strCategory, strProblem, strNotes, strStatus
    Dim strTech, strCustom1, strCustom2, strCurrentUser, objCurrentUser, strCurrentUserEmail
    Dim objMessage, objConf, strMessage, objTechSet, strFromEMail, objMessageText
    Dim strSubject, strName
-   
+
    intID = request.querystring("ID")
    strName = Upload.Form("Name")
    strUserEMail = Upload.Form("EMail")
@@ -2249,8 +2272,8 @@ End Sub%>
    strStatus = Upload.Form("Status")
    strTech = Upload.Form("Tech")
    strCustom1 = Upload.Form("Custom1")
-   strCustom2 = Upload.Form("Custom2")  
-   
+   strCustom2 = Upload.Form("Custom2")
+
    'This code will fix the display name so it matches what is in the database.
    Select Case UCase(strUser)
       Case "HELPDESK"
@@ -2260,13 +2283,13 @@ End Sub%>
       Case Else
          strCurrentUser = GetFirstandLastName(strUser)
    End Select
-   
+
    strSQL = "Select EMail" & vbCRLF
    strSQL = strSQL & "From Tech" & vbCRLF
    strSQL = strSQL & "Where Tech='" & strCurrentUser & "'"
- 
+
    Set objCurrentUser = Application("Connection").Execute(strSQL)
-   
+
    If objCurrentUser.EOF Then
       strCurrentUserEmail = Application("SendFromEMail")
    Else
@@ -2275,7 +2298,7 @@ End Sub%>
 
    'Create the message object.
    Set objMessage = CreateObject("CDO.Message")
-   
+
    'Create the configuration object.
    Set objConf = objMessage.Configuration
 
@@ -2284,7 +2307,7 @@ End Sub%>
       .item("http://schemas.microsoft.com/cdo/configuration/smtpserverpickupdirectory") = Application("SMTPPickupFolder")
       .Update
    End With
-   
+
    'Get the Tech's email address
    strSQL = "Select Tech.EMail" & vbCRLF
    strSQL = strSQL & "From Tech" & vbCRLF
@@ -2298,7 +2321,7 @@ End Sub%>
 
    strSQL = "SELECT Subject, Message FROM EMail WHERE Title='Update Tech'"
    Set objMessageText = Application("Connection").Execute(strSQL)
-   
+
    strMessage = objMessageText(1)
    strMessage = Replace(strMessage,"#TICKET#",intID)
    strMessage = Replace(strMessage,"#CURRENTUSER#",strCurrentUser)
@@ -2312,13 +2335,13 @@ End Sub%>
    strMessage = Replace(strMessage,"#PROBLEM#",strProblem)
    strMessage = Replace(strMessage,"#NOTES#",strNotes)
    strMessage = Replace(strMessage,"#LINK#",Application("AdminURL") & "/modify.asp?ID=" & intID)
-   
+
    strSubject = objMessageText(0)
    strSubject = Replace(strSubject,"#TICKET#",intID)
-   
+
    With objMessage
       .To = strTechEmail
-      .From = strCurrentUserEmail 
+      .From = strCurrentUserEmail
       .Subject = strSubject
       .TextBody = strMessage
       If Application("BCC") <> "" Then
@@ -2326,25 +2349,25 @@ End Sub%>
       End If
       .Send
    End With
-   
+
    strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,NewValue,UpdateDate,UpdateTime)"
    strSQL = strSQL & "VALUES (" & intID & ",'Tech Notified','" & strUser & "','" & strTech & "','" & Date() & "','" & Time() & "');"
    Application("Connection").Execute(strSQL)
-   
+
    Set objConf = Nothing
    Set objMessage = Nothing
-   
-End Sub%> 
+
+End Sub%>
 
 <%Sub UpdateUser
 
    Const cdoSendUsingPickup = 1
-   
+
    Dim intID, strUserEMail, strLocation, strCategory, strProblem, strNotes, strStatus
    Dim strTech, strCustom1, strCustom2, strCurrentUser, objCurrentUser, strCurrentUserEmail
    Dim objMessage, objConf, strMessage, objTechSet, strCCEMail, objMessageText
    Dim strSubject, strName
-   
+
    intID = request.querystring("ID")
    strName = Upload.Form("Name")
    strUserEMail = Upload.Form("EMail")
@@ -2356,7 +2379,7 @@ End Sub%>
    strTech = Upload.Form("Tech")
    strCustom1 = Upload.Form("Custom1")
    strCustom2 = Upload.Form("Custom2")
-   
+
    'This code will fix the display name so it matches what is in the database.
    Select Case UCase(strUser)
       Case "HELPDESK"
@@ -2370,9 +2393,9 @@ End Sub%>
    strSQL = "Select EMail" & vbCRLF
    strSQL = strSQL & "From Tech" & vbCRLF
    strSQL = strSQL & "Where Tech='" & strCurrentUser & "'"
- 
+
    Set objCurrentUser = Application("Connection").Execute(strSQL)
-   
+
    If objCurrentUser.EOF Then
       strCurrentUserEmail = Application("SendFromEMail")
    Else
@@ -2381,19 +2404,19 @@ End Sub%>
 
    'Create the message object.
    Set objMessage = CreateObject("CDO.Message")
-   
+
    'Create the configuration object.
    Set objConf = objMessage.Configuration
-   
+
    With objConf.Fields
       .item("http://schemas.microsoft.com/cdo/configuration/sendusing") = cdoSendUsingPickup
       .item("http://schemas.microsoft.com/cdo/configuration/smtpserverpickupdirectory") = Application("SMTPPickupFolder")
       .Update
    End With
-   
+
    strSQL = "SELECT Subject, Message FROM EMail WHERE Title='Update User'"
    Set objMessageText = Application("Connection").Execute(strSQL)
-   
+
    strMessage = objMessageText(1)
    strMessage = Replace(strMessage,"#TICKET#",intID)
    strMessage = Replace(strMessage,"#CURRENTUSER#",strCurrentUser)
@@ -2407,16 +2430,16 @@ End Sub%>
    strMessage = Replace(strMessage,"#PROBLEM#",strProblem)
    strMessage = Replace(strMessage,"#NOTES#",HideText(strNotes))
    strMessage = Replace(strMessage,"#LINK#",Application("AdminURL") & "/modify.asp?ID=" & intID)
-   
+
    strSubject = objMessageText(0)
    strSubject = Replace(strSubject,"#TICKET#",intID)
 
    strSQL = "Select EMail" & vbCRLF
    strSQL = strSQL & "From Tech" & vbCRLF
    strSQL = strSQL & "Where Tech='" & strTech & "'"
- 
+
    Set objTechSet = Application("Connection").Execute(strSQL)
-   
+
    If objTechSet.EOF Then
       strCCEMail = ""
    Else
@@ -2428,7 +2451,7 @@ End Sub%>
       If strCCEMail <> "" Then
          .CC = strCCEMail
       End If
-      .From = strCurrentUserEmail 
+      .From = strCurrentUserEmail
       .Subject = strSubject
       .TextBody = strMessage
       If Application("BCC") <> "" Then
@@ -2436,25 +2459,25 @@ End Sub%>
       End If
       .Send
    End With
-   
+
    strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,UpdateDate,UpdateTime)"
    strSQL = strSQL & "VALUES (" & intID & ",'User Notified','" & strUser & "','" & Date() & "','" & Time() & "');"
    Application("Connection").Execute(strSQL)
-   
+
    Set objConf = Nothing
    Set objMessage = Nothing
-   
-End Sub%> 
+
+End Sub%>
 
 <%Sub SendTicket
-   
+
    Const cdoSendUsingPickup = 1
-   
+
    Dim intID, strUserEMail, strLocation, strCategory, strProblem, strNotes, strStatus
    Dim strTech, strCustom1, strCustom2, strCurrentUser, objCurrentUser, strCurrentUserEmail
    Dim objMessage, objConf, strMessage, objTechSet, strFromEMail, objMessageText
    Dim strSubject, strEMail, strName
-   
+
    intID = request.querystring("ID")
    strName = Upload.Form("Name")
    strUserEMail = Upload.Form("EMail")
@@ -2465,8 +2488,8 @@ End Sub%>
    strStatus = Upload.Form("Status")
    strTech = Upload.Form("Tech")
    strCustom1 = Upload.Form("Custom1")
-   strCustom2 = Upload.Form("Custom2") 
-   
+   strCustom2 = Upload.Form("Custom2")
+
    'This code will fix the display name so it matches what is in the database.
    Select Case UCase(strUser)
       Case "HELPDESK"
@@ -2476,13 +2499,13 @@ End Sub%>
       Case Else
          strCurrentUser = GetFirstandLastName(strUser)
    End Select
-   
+
    strSQL = "Select EMail" & vbCRLF
    strSQL = strSQL & "From Tech" & vbCRLF
    strSQL = strSQL & "Where Tech='" & strCurrentUser & "'"
- 
+
    Set objCurrentUser = Application("Connection").Execute(strSQL)
-   
+
    If objCurrentUser.EOF Then
       strCurrentUserEmail = Application("SendFromEMail")
    Else
@@ -2491,7 +2514,7 @@ End Sub%>
 
    'Create the message object.
    Set objMessage = CreateObject("CDO.Message")
-   
+
    'Create the configuration object.
    Set objConf = objMessage.Configuration
 
@@ -2500,12 +2523,12 @@ End Sub%>
       .item("http://schemas.microsoft.com/cdo/configuration/smtpserverpickupdirectory") = Application("SMTPPickupFolder")
       .Update
    End With
-   
+
    strEMail = Upload.Form("SendEMail")
 
    strSQL = "SELECT Subject, Message FROM EMail WHERE Title='Send Ticket'"
    Set objMessageText = Application("Connection").Execute(strSQL)
-   
+
    strMessage = objMessageText(1)
    strMessage = Replace(strMessage,"#TICKET#",intID)
    strMessage = Replace(strMessage,"#CURRENTUSER#",strCurrentUser)
@@ -2519,13 +2542,13 @@ End Sub%>
    strMessage = Replace(strMessage,"#PROBLEM#",strProblem)
    strMessage = Replace(strMessage,"#NOTES#",strNotes)
    strMessage = Replace(strMessage,"#LINK#",Application("AdminURL") & "/modify.asp?ID=" & intID)
-   
+
    strSubject = objMessageText(0)
    strSubject = Replace(strSubject,"#TICKET#",intID)
-   
+
    With objMessage
       .To = strEMail
-      .From = strCurrentUserEmail 
+      .From = strCurrentUserEmail
       .Subject = strSubject
       .TextBody = strMessage
       If Application("BCC") <> "" Then
@@ -2533,25 +2556,25 @@ End Sub%>
       End If
       .Send
    End With
-   
+
    strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,NewValue,UpdateDate,UpdateTime)"
    strSQL = strSQL & "VALUES (" & intID & ",'Ticket EMailed','" & strUser & "','" & strEMail & "','" & Date() & "','" & Time() & "');"
    Application("Connection").Execute(strSQL)
-   
+
    Set objConf = Nothing
    Set objMessage = Nothing
-   
-End Sub%> 
+
+End Sub%>
 
 <%Sub RequestUpdate
 
    Const cdoSendUsingPickup = 1
-   
+
    Dim intID, strUserEMail, strLocation, strCategory, strProblem, strNotes, strStatus
    Dim strTech, strCustom1, strCustom2, strCurrentUser, objCurrentUser, strCurrentUserEmail
    Dim objMessage, objConf, strMessage, objTechSet, strCCEMail, objMessageText
    Dim strSubject, strName
-   
+
    intID = request.querystring("ID")
    strName = Upload.Form("Name")
    strUserEMail = Upload.Form("EMail")
@@ -2564,34 +2587,34 @@ End Sub%>
    strCustom1 = Upload.Form("Custom1")
    strCustom2 = Upload.Form("Custom2")
    strCurrentUser = GetFirstandLastName(strUser)
-   
+
    strSQL = "Select EMail" & vbCRLF
    strSQL = strSQL & "From Tech" & vbCRLF
    strSQL = strSQL & "Where Tech='" & strCurrentUser & "'"
- 
+
    Set objCurrentUser = Application("Connection").Execute(strSQL)
-   
+
    If objCurrentUser.EOF Then
       strCurrentUserEmail = Application("SendFromEMail")
    Else
       strCurrentUserEmail = objCurrentUser(0)
    End If
-  
+
    'Create the message object.
    Set objMessage = CreateObject("CDO.Message")
-   
+
    'Create the configuration object.
    Set objConf = objMessage.Configuration
-   
+
    With objConf.Fields
       .item("http://schemas.microsoft.com/cdo/configuration/sendusing") = cdoSendUsingPickup
       .item("http://schemas.microsoft.com/cdo/configuration/smtpserverpickupdirectory") = Application("SMTPPickupFolder")
       .Update
    End With
-   
+
    strSQL = "SELECT Subject, Message FROM EMail WHERE Title='Request for Update'"
    Set objMessageText = Application("Connection").Execute(strSQL)
-   
+
    strMessage = objMessageText(1)
    strMessage = Replace(strMessage,"#TICKET#",intID)
    strMessage = Replace(strMessage,"#CURRENTUSER#",strCurrentUser)
@@ -2605,25 +2628,25 @@ End Sub%>
    strMessage = Replace(strMessage,"#PROBLEM#",strProblem)
    strMessage = Replace(strMessage,"#NOTES#",strNotes)
    strMessage = Replace(strMessage,"#LINK#",Application("AdminURL") & "/modify.asp?ID=" & intID)
-   
+
    strSubject = objMessageText(0)
    strSubject = Replace(strSubject,"#TICKET#",intID)
-   
+
    strSQL = "Select EMail" & vbCRLF
    strSQL = strSQL & "From Tech" & vbCRLF
    strSQL = strSQL & "Where Tech='" & strTech & "'"
- 
+
    Set objTechSet = Application("Connection").Execute(strSQL)
-   
+
    If objTechSet.EOF Then
       strTechEMail = ""
    Else
       strTechEMail = objTechSet(0)
    End If
-   
+
    With objMessage
       .To = strTechEMail
-      .From = strCurrentUserEmail 
+      .From = strCurrentUserEmail
       .CC = strCurrentUserEmail
       .Subject = strSubject
       .TextBody = strMessage
@@ -2632,33 +2655,33 @@ End Sub%>
       End If
       .Send
    End With
-   
+
    'Build the SQL string that will write to the database who is requesting the update.
    strSQL = "INSERT INTO Tracking (Ticket,Type,TrackedBy)" & vbCRLF
    strSQL = strSQL & "VALUES (" & intID & ",'Request','" & strUser & "')" & vbCRLF
    Application("Connection").Execute(strSQL)
-   
+
    'Build the SQL string that will update the log saying who requested the update
    strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,OldValue,UpdateDate,UpdateTime)"
    strSQL = strSQL & "VALUES (" & intID & ",'Update Requested','" & strUser & "','" & strTech & "','" & Date() & "','" & Time() & "');"
    Application("Connection").Execute(strSQL)
-   
+
    Set objConf = Nothing
    Set objMessage = Nothing
 
-End Sub%> 
+End Sub%>
 
 <%Sub TicketAssigned
    '*****************************************************************************************
    'Send the tech an email if the ticket was just assigned to them.
-   
+
    Const cdoSendUsingPickup = 1
-   
+
    Dim intID, strUserEMail, strLocation, strCategory, strProblem, strNotes, strStatus
    Dim strTech, strCustom1, strCustom2, strCurrentUser, objCurrentUser, strCurrentUserEmail
    Dim objMessage, objConf, strMessage, objTechSet, strCCEMail, objOldTechSet, objFSO
    Dim objFolder, objFile, strAttachment, strAttachmentTech, objMessageText, strSubject, strName
-   
+
    intID = request.querystring("ID")
    strName = Upload.Form("Name")
    strUserEMail = Upload.Form("EMail")
@@ -2669,11 +2692,11 @@ End Sub%>
    strStatus = Upload.Form("Status")
    strTech = Upload.Form("Tech")
    strCustom1 = Upload.Form("Custom1")
-   strCustom2 = Upload.Form("Custom2")   
-   
+   strCustom2 = Upload.Form("Custom2")
+
    'Create the message object.
    Set objMessage = CreateObject("CDO.Message")
-   
+
    'See if there is an attachement
    Set objFSO = CreateObject("Scripting.FileSystemObject")
    If objFSO.FolderExists(Application("FileLocation") & "\" & intID) Then
@@ -2682,7 +2705,7 @@ End Sub%>
          strAttachment = objFile.Path
       Next
    End If
-   
+
    'See if there is an attachement added by the tech
    If objFSO.FolderExists(Application("FileLocation") & "\" & intID & "-Tech") Then
       Set objFolder = objFSO.GetFolder(Application("FileLocation") & "\" & intID & "-Tech")
@@ -2690,10 +2713,10 @@ End Sub%>
          strAttachmentTech = objFile.Path
       Next
    End If
-   
+
    'Create the configuration object.
    Set objConf = objMessage.Configuration
-   
+
    With objConf.Fields
       .item("http://schemas.microsoft.com/cdo/configuration/sendusing") = cdoSendUsingPickup
       .item("http://schemas.microsoft.com/cdo/configuration/smtpserverpickupdirectory") = Application("SMTPPickupFolder")
@@ -2703,13 +2726,13 @@ End Sub%>
    strSQL = "Select EMail" & vbCRLF
    strSQL = strSQL & "From Tech" & vbCRLF
    strSQL = strSQL & "Where Tech='" & strTech & "'"
- 
+
    Set objTechSet = Application("Connection").Execute(strSQL)
    strTechEmail = objTechSet(0)
-   
+
    strSQL = "SELECT Subject, Message FROM EMail WHERE Title='Ticket Assigned'"
    Set objMessageText = Application("Connection").Execute(strSQL)
-   
+
    strMessage = objMessageText(1)
    strMessage = Replace(strMessage,"#TICKET#",intID)
    strMessage = Replace(strMessage,"#CURRENTUSER#",strCurrentUser)
@@ -2723,13 +2746,13 @@ End Sub%>
    strMessage = Replace(strMessage,"#PROBLEM#",strProblem)
    strMessage = Replace(strMessage,"#NOTES#",strNotes)
    strMessage = Replace(strMessage,"#LINK#",Application("AdminURL") & "/modify.asp?ID=" & intID)
-   
+
    strSubject = objMessageText(0)
    strSubject = Replace(strSubject,"#TICKET#",intID)
-   
+
    With objMessage
       .To = objTechSet(0)
-      .From = Application("SendFromEMail") 
+      .From = Application("SendFromEMail")
       .Subject = strSubject
       .TextBody = strMessage
       If strAttachment <> "" Then
@@ -2743,23 +2766,23 @@ End Sub%>
       End If
       .Send
    End With
-   
+
    Set objConf = Nothing
    Set objMessage = Nothing
-   
+
 End Sub%>
 
 <%Sub TicketReassigned
 
    'Send the old tech an email if the ticket was just assigned to someone else.
-   
+
    Const cdoSendUsingPickup = 1
-   
+
    Dim intID, strUserEMail, strLocation, strCategory, strProblem, strNotes, strStatus
    Dim strTech, strCustom1, strCustom2, strCurrentUser, objCurrentUser, strCurrentUserEmail
    Dim objMessage, objConf, strMessage, objTechSet, strCCEMail, objOldTechSet
    Dim strOldTechEmail, objMessageText, strSubject, strName
-   
+
    intID = request.querystring("ID")
    strName = Upload.Form("Name")
    strUserEMail = Upload.Form("EMail")
@@ -2771,7 +2794,7 @@ End Sub%>
    strTech = Upload.Form("Tech")
    strCustom1 = Upload.Form("Custom1")
    strCustom2 = Upload.Form("Custom2")
-   
+
    'This code will fix the display name so it matches what is in the database.
    Select Case UCase(strUser)
       Case "HELPDESK"
@@ -2781,13 +2804,13 @@ End Sub%>
       Case Else
          strCurrentUser = GetFirstandLastName(strUser)
    End Select
-   
+
    strSQL = "Select EMail" & vbCRLF
    strSQL = strSQL & "From Tech" & vbCRLF
    strSQL = strSQL & "Where Tech='" & strCurrentUser & "'"
- 
+
    Set objCurrentUser = Application("Connection").Execute(strSQL)
-   
+
    If objCurrentUser.EOF Then
       strCurrentUserEmail = Application("SendFromEMail")
    Else
@@ -2798,16 +2821,16 @@ End Sub%>
    strSQL = "Select Main.ID, Tech.EMail" & vbCRLF
    strSQL = strSQL & "From Main INNER JOIN Tech ON Main.Tech = Tech.Tech" & vbCRLF
    strSQL = strSQL & "Where ((Main.ID)=" & intID & ");"
- 
+
    Set objOldTechSet = Application("Connection").Execute(strSQL)
    strOldTechEmail = objOldTechSet(1)
 
    'Create the message object.
    Set objMessage = CreateObject("CDO.Message")
-   
+
    'Create the configuration object.
    Set objConf = objMessage.Configuration
-   
+
    With objConf.Fields
       .item("http://schemas.microsoft.com/cdo/configuration/sendusing") = cdoSendUsingPickup
       .item("http://schemas.microsoft.com/cdo/configuration/smtpserverpickupdirectory") = Application("SMTPPickupFolder")
@@ -2816,7 +2839,7 @@ End Sub%>
 
    strSQL = "SELECT Subject, Message FROM EMail WHERE Title='Ticket Reassigned'"
    Set objMessageText = Application("Connection").Execute(strSQL)
-   
+
    strMessage = objMessageText(1)
    strMessage = Replace(strMessage,"#TICKET#",intID)
    strMessage = Replace(strMessage,"#CURRENTUSER#",strCurrentUser)
@@ -2830,13 +2853,13 @@ End Sub%>
    strMessage = Replace(strMessage,"#PROBLEM#",strProblem)
    strMessage = Replace(strMessage,"#NOTES#",strNotes)
    strMessage = Replace(strMessage,"#LINK#",Application("AdminURL") & "/modify.asp?ID=" & intID)
-   
+
    strSubject = objMessageText(0)
    strSubject = Replace(strSubject,"#TICKET#",intID)
 
    With objMessage
       .To = strOldTechEmail
-      .From = Application("SendFromEMail") 
+      .From = Application("SendFromEMail")
       .Subject = strSubject
       .TextBody = strMessage
       If Application("BCC") <> "" Then
@@ -2844,23 +2867,23 @@ End Sub%>
       End If
       .Send
    End With
-   
+
    Set objConf = Nothing
    Set objMessage = Nothing
 
 End Sub%>
 
 <%Sub TicketClosed
-   
+
    'Send the user an email if the ticket is closed.
-   
+
    Const cdoSendUsingPickup = 1
-   
+
    Dim intID, strUserEMail, strLocation, strCategory, strProblem, strNotes, strStatus
    Dim strTech, strCustom1, strCustom2, strCurrentUser, objCurrentUser, strCurrentUserEmail
    Dim objMessage, objConf, strMessage, objTechSet, strCCEMail, objOldTechSet, objFSO, strName
    Dim objFolder, objFile, strAttachment, strAttachmentTech, objMessageText, strSubject
-   
+
    intID = request.querystring("ID")
    strName = Upload.Form("Name")
    strUserEMail = Upload.Form("EMail")
@@ -2871,11 +2894,11 @@ End Sub%>
    strStatus = Upload.Form("Status")
    strTech = Upload.Form("Tech")
    strCustom1 = Upload.Form("Custom1")
-   strCustom2 = Upload.Form("Custom2")   
-   
+   strCustom2 = Upload.Form("Custom2")
+
    'Create the message object.
    Set objMessage = CreateObject("CDO.Message")
-   
+
    'See if there is an attachement
    Set objFSO = CreateObject("Scripting.FileSystemObject")
    If objFSO.FolderExists(Application("FileLocation") & "\" & intID) Then
@@ -2884,7 +2907,7 @@ End Sub%>
          strAttachment = objFile.Path
       Next
    End If
-   
+
    'See if there is an attachement added by the tech
    If objFSO.FolderExists(Application("FileLocation") & "\" & intID & "-Tech") Then
       Set objFolder = objFSO.GetFolder(Application("FileLocation") & "\" & intID & "-Tech")
@@ -2894,19 +2917,19 @@ End Sub%>
    End If
 
    Set objMessage = CreateObject("CDO.Message")
-   
+
    'Create the configuration object.
    Set objConf = objMessage.Configuration
-   
+
    With objConf.Fields
       .item("http://schemas.microsoft.com/cdo/configuration/sendusing") = cdoSendUsingPickup
       .item("http://schemas.microsoft.com/cdo/configuration/smtpserverpickupdirectory") = Application("SMTPPickupFolder")
       .Update
    End With
-  
+
    strSQL = "SELECT Subject, Message FROM EMail WHERE Title='Ticket Closed'"
    Set objMessageText = Application("Connection").Execute(strSQL)
-   
+
    strMessage = objMessageText(1)
    strMessage = Replace(strMessage,"#TICKET#",intID)
    strMessage = Replace(strMessage,"#CURRENTUSER#",strCurrentUser)
@@ -2920,13 +2943,23 @@ End Sub%>
    strMessage = Replace(strMessage,"#PROBLEM#",strProblem)
    strMessage = Replace(strMessage,"#NOTES#",HideText(strNotes))
    strMessage = Replace(strMessage,"#LINK#",Application("AdminURL") & "/modify.asp?ID=" & intID)
-   
+
    strSubject = objMessageText(0)
    strSubject = Replace(strSubject,"#TICKET#",intID)
+   strSubject = Replace(strSubject,"#CURRENTUSER#",strCurrentUser)
+   strSubject = Replace(strSubject,"#USER#",strName)
+   strSubject = Replace(strSubject,"#TECH#",strTech)
+   strSubject = Replace(strSubject,"#STATUS#",strStatus)
+   strSubject = Replace(strSubject,"#USEREMAIL#",strUserEMail)
+   strSubject = Replace(strSubject,"#LOCATION#",strLocation)
+   strSubject = Replace(strSubject,"#CUSTOM1#",strCustom1)
+   strSubject = Replace(strSubject,"#CUSTOM2#",strCustom2)
+   strSubject = Replace(strSubject,"#PROBLEM#",strProblem)
+   strSubject = Replace(strSubject,"#NOTES#",HideText(strNotes))
 
    With objMessage
-      .To = strUserEMail 
-      .From = Application("SendFromEMail") 
+      .To = strUserEMail
+      .From = Application("SendFromEMail")
       .Subject = strSubject
       .TextBody = strMessage
       If strAttachmentTech <> "" Then
@@ -2937,22 +2970,22 @@ End Sub%>
       End If
       .Send
    End With
-   
+
    Set objConf = Nothing
    Set objMessage = Nothing
-   
+
 End Sub %>
 
 <%Sub SendRequestedUpdate
 
    Const cdoSendUsingPickup = 1
-   
+
    Dim intID, strUserEMail, strLocation, strCategory, strProblem, strNotes, strStatus
    Dim strTech, strCustom1, strCustom2, strCurrentUser, objCurrentUser, strCurrentUserEmail
    Dim objMessage, objConf, strMessage, objTechSet, strCCEMail, objFSO, strName
    Dim objFolder, objFile, strAttachment, strAttachmentTech, objTrackingSet, objMessageText
    Dim strSubject
-   
+
    intID = request.querystring("ID")
    strName = Upload.Form("Name")
    strUserEMail = Upload.Form("EMail")
@@ -2966,7 +2999,7 @@ End Sub %>
    strCustom2 = Upload.Form("Custom2")
 
    Set objMessage = CreateObject("CDO.Message")
-   
+
    'See if there is an attachement
    Set objFSO = CreateObject("Scripting.FileSystemObject")
    If objFSO.FolderExists(Application("FileLocation") & "\" & intID) Then
@@ -2975,7 +3008,7 @@ End Sub %>
          strAttachment = objFile.Path
       Next
    End If
-   
+
    'See if there is an attachement added by the tech
    If objFSO.FolderExists(Application("FileLocation") & "\" & intID & "-Tech") Then
       Set objFolder = objFSO.GetFolder(Application("FileLocation") & "\" & intID & "-Tech")
@@ -2983,13 +3016,13 @@ End Sub %>
          strAttachmentTech = objFile.Path
       Next
    End If
-   
+
    strSQL = "SELECT TrackedBy FROM Tracking WHERE Ticket=" & intID & " And Type='Request'"
-   Set objTracking = Application("Connection").Execute(strSQL)  
-   
+   Set objTracking = Application("Connection").Execute(strSQL)
+
    'Create the configuration object.
    Set objConf = objMessage.Configuration
-   
+
    With objConf.Fields
       .item("http://schemas.microsoft.com/cdo/configuration/sendusing") = cdoSendUsingPickup
       .item("http://schemas.microsoft.com/cdo/configuration/smtpserverpickupdirectory") = Application("SMTPPickupFolder")
@@ -2998,7 +3031,7 @@ End Sub %>
 
    strSQL = "SELECT Subject, Message FROM EMail WHERE Title='Requested Update'"
    Set objMessageText = Application("Connection").Execute(strSQL)
-   
+
    strMessage = objMessageText(1)
    strMessage = Replace(strMessage,"#TICKET#",intID)
    strMessage = Replace(strMessage,"#CURRENTUSER#",strCurrentUser)
@@ -3012,14 +3045,14 @@ End Sub %>
    strMessage = Replace(strMessage,"#PROBLEM#",strProblem)
    strMessage = Replace(strMessage,"#NOTES#",strNotes)
    strMessage = Replace(strMessage,"#LINK#",Application("AdminURL") & "/modify.asp?ID=" & intID)
-   
+
    strSubject = objMessageText(0)
    strSubject = Replace(strSubject,"#TICKET#",intID)
-   
+
    Do Until objTracking.EOF
       With objMessage
          .To = objTracking(0) & Application("EMailSuffix")
-         .From = Application("SendFromEMail") 
+         .From = Application("SendFromEMail")
          .Subject = strSubject
          .TextBody = strMessage
          If strAttachment <> "" Then
@@ -3035,12 +3068,12 @@ End Sub %>
       End With
       objTracking.MoveNext
    Loop
-      
+
    'Build the SQL string that will remove from the database who is requesting the update.
    strSQL = "DELETE FROM Tracking" & vbCRLF
    strSQL = strSQL & "WHERE (Ticket=" & intID & " And Type='Request')"
-   Application("Connection").Execute(strSQL)   
-   
+   Application("Connection").Execute(strSQL)
+
    'Build the SQL string that will update the log saying the update request has been answered
    strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,UpdateDate,UpdateTime)" & vbCRLF
    strSQL = strSQL & "VALUES (" & intID & ",'Request Update Complete','" & strUser & "','" & Date() & "','" & Time() & "');"
@@ -3048,7 +3081,7 @@ End Sub %>
 
    Set objConf = Nothing
    Set objMessage = Nothing
-   
+
 End Sub %>
 
 <%Sub CancelUpdateRequest
@@ -3060,58 +3093,58 @@ End Sub %>
    'Build the SQL string that will remove from the database who is requesting the update.
    strSQL = "DELETE FROM Tracking" & vbCRLF
    strSQL = strSQL & "WHERE (Ticket=" & intID & " And TrackedBy='" & strUser & "' And Type='Request')"
-   Application("Connection").Execute(strSQL)   
-   
+   Application("Connection").Execute(strSQL)
+
    'Build the SQL string that will update the log saying the update request has been answered
    strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,UpdateDate,UpdateTime)" & vbCRLF
    strSQL = strSQL & "VALUES (" & intID & ",'Cancelled Update Request','" & strUser & "','" & Date() & "','" & Time() & "');"
    Application("Connection").Execute(strSQL)
-   
+
 End Sub%>
 
-<%Sub TrackTicket  
+<%Sub TrackTicket
 
    intID = Request.QueryString("ID")
-  
+
    'Build the SQL string that will write to the database who is requesting the update.
    strSQL = "INSERT INTO Tracking (Ticket,Type,TrackedBy)" & vbCRLF
    strSQL = strSQL & "VALUES (" & intID & ",'Track','" & strUser & "')" & vbCRLF
 
    Application("Connection").Execute(strSQL)
-  
+
    'Update the log
    strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,UpdateDate,UpdateTime)"
    strSQL = strSQL & "VALUES (" & intID & ",'Ticket Tracked','" & strUser & "','" & Date() & "','" & Time() & "');"
    Application("Connection").Execute(strSQL)
 
-End Sub%> 
+End Sub%>
 
 <%Sub DontTrackTicket
 
    intID = Request.QueryString("ID")
-  
+
    'Build the SQL string that will remove from the database who is requesting the update.
    strSQL = "DELETE FROM Tracking" & vbCRLF
    strSQL = strSQL & "WHERE (Ticket=" & intID & " And TrackedBy='" & strUser & "' And Type='Track')"
    Application("Connection").Execute(strSQL)
-  
+
    'Update the log
    strSQL = "INSERT INTO Log (Ticket,Type,ChangedBy,UpdateDate,UpdateTime)"
    strSQL = strSQL & "VALUES (" & intID & ",'Ticket Not Tracked','" & strUser & "','" & Date() & "','" & Time() & "');"
    Application("Connection").Execute(strSQL)
 
-End Sub%> 
+End Sub%>
 
 <%Sub SendTrackingEMail
 
    Const cdoSendUsingPickup = 1
-   
+
    Dim intID, strUserEMail, strLocation, strCategory, strProblem, strNotes, strStatus
    Dim strTech, strCustom1, strCustom2, strCurrentUser, objCurrentUser, strCurrentUserEmail
    Dim objMessage, objConf, strMessage, objTechSet, strCCEMail, objFSO, strName
    Dim objFolder, objFile, strAttachment, strAttachmentTech, objTracking, objMessageText
    Dim strSubject
-   
+
    intID = request.querystring("ID")
    strName = Upload.Form("Name")
    strUserEMail = Upload.Form("EMail")
@@ -3125,7 +3158,7 @@ End Sub%>
    strCustom2 = Upload.Form("Custom2")
 
    Set objMessage = CreateObject("CDO.Message")
-   
+
    'See if there is an attachement
    Set objFSO = CreateObject("Scripting.FileSystemObject")
    If objFSO.FolderExists(Application("FileLocation") & "\" & intID) Then
@@ -3134,7 +3167,7 @@ End Sub%>
          strAttachment = objFile.Path
       Next
    End If
-   
+
    'See if there is an attachement added by the tech
    If objFSO.FolderExists(Application("FileLocation") & "\" & intID & "-Tech") Then
       Set objFolder = objFSO.GetFolder(Application("FileLocation") & "\" & intID & "-Tech")
@@ -3142,13 +3175,13 @@ End Sub%>
          strAttachmentTech = objFile.Path
       Next
    End If
-   
+
    strSQL = "SELECT TrackedBy FROM Tracking WHERE Ticket=" & intID & " And Type='Track'"
    Set objTracking = Application("Connection").Execute(strSQL)
-   
+
    'Create the configuration object.
    Set objConf = objMessage.Configuration
-   
+
    With objConf.Fields
       .item("http://schemas.microsoft.com/cdo/configuration/sendusing") = cdoSendUsingPickup
       .item("http://schemas.microsoft.com/cdo/configuration/smtpserverpickupdirectory") = Application("SMTPPickupFolder")
@@ -3157,7 +3190,7 @@ End Sub%>
 
    strSQL = "SELECT Subject, Message FROM EMail WHERE Title='Tracking Update'"
    Set objMessageText = Application("Connection").Execute(strSQL)
-   
+
    strMessage = objMessageText(1)
    strMessage = Replace(strMessage,"#TICKET#",intID)
    strMessage = Replace(strMessage,"#CURRENTUSER#",strCurrentUser)
@@ -3171,14 +3204,14 @@ End Sub%>
    strMessage = Replace(strMessage,"#PROBLEM#",strProblem)
    strMessage = Replace(strMessage,"#NOTES#",strNotes)
    strMessage = Replace(strMessage,"#LINK#",Application("AdminURL") & "/modify.asp?ID=" & intID)
-   
+
    strSubject = objMessageText(0)
    strSubject = Replace(strSubject,"#TICKET#",intID)
-   
+
    Do Until objTracking.EOF
       With objMessage
          .To = objTracking(0) & Application("EMailSuffix")
-         .From = Application("SendFromEMail") 
+         .From = Application("SendFromEMail")
          .Subject = strSubject
          .TextBody = strMessage
          If strAttachment <> "" Then
@@ -3194,17 +3227,17 @@ End Sub%>
       End With
       objTracking.MoveNext
    Loop
-   
+
    If strStatus = "Complete" Then
       'Build the SQL string that will remove from the database who is tracking the ticket
       strSQL = "DELETE FROM Tracking" & vbCRLF
       strSQL = strSQL & "WHERE Ticket=" & intID
       Application("Connection").Execute(strSQL)
    End If
-   
+
    Set objConf = Nothing
    Set objMessage = Nothing
-   
+
 End Sub%>
 
 <%Sub API
@@ -3225,7 +3258,7 @@ End Sub%>
    strCustom2 = Upload.Form("Custom2")
 
    If Application("TSCAPI") <> "" And Application("TSCTech") = strTech Then %>
-      
+
       <form id="api" method="POST" action="<%=Application("TSCAPI")%>" target="_blank">
          <input type="hidden" name="Name" value="auto" />
          <input type="hidden" name="DisplayName" value="<%=strName%>" />
@@ -3238,7 +3271,7 @@ End Sub%>
          <input type="hidden" name="Custom2" value="<%=strCustom2%>" />
          <input type="hidden" name="TicketNumber" value="<%=intID%>" />
       </form>
-      
+
       <script type="text/javascript">
           function autosubmitform () {
               var frm = document.getElementById("api");
@@ -3246,19 +3279,19 @@ End Sub%>
           }
           window.onload = autosubmitform;
       </script>
-      
-<% End If 
+
+<% End If
 
 End Sub %>
 
-<%Sub AccessDenied 
+<%Sub AccessDenied
 
    If bolShowLogout Then
       Response.Redirect("login.asp?action=logout")
    Else
    %>
 
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
    <html>
    <head>
@@ -3272,7 +3305,7 @@ End Sub %>
       <center><b>Access Denied</b></center>
    </body>
    </html>
-   
+
 <% End If
 
 End Sub%>
@@ -3284,26 +3317,26 @@ End Sub%>
 ' Parameter: strEmail - the Email address
 ' Returned value: on success it returns True, else False.
 Function IsEmailValid(strEmail)
- 
+
     Dim strArray
     Dim strItem
     Dim i
     Dim c
     Dim blnIsItValid
- 
-    ' assume the email address is correct 
+
+    ' assume the email address is correct
     blnIsItValid = True
-   
+
     ' split the email address in two parts: name@domain.ext
     strArray = Split(strEmail, "@")
- 
-    ' if there are more or less than two parts 
+
+    ' if there are more or less than two parts
     If UBound(strArray) <> 1 Then
         blnIsItValid = False
         IsEmailValid = blnIsItValid
         Exit Function
     End If
- 
+
     ' check each part
     For Each strItem In strArray
         ' no part can be void
@@ -3312,7 +3345,7 @@ Function IsEmailValid(strEmail)
             IsEmailValid = blnIsItValid
             Exit Function
         End If
-       
+
         ' check each character of the part
         ' only following "abcdefghijklmnopqrstuvwxyz_-."
         ' characters and the ten digits are allowed
@@ -3325,7 +3358,7 @@ Function IsEmailValid(strEmail)
                    Exit Function
                End If
         Next
-  
+
       ' the first and the last character in the part cannot be . (dot)
         If Left(strItem, 1) = "." Or Right(strItem, 1) = "." Then
            blnIsItValid = False
@@ -3333,15 +3366,15 @@ Function IsEmailValid(strEmail)
            Exit Function
         End If
     Next
- 
+
     ' the second part (domain.ext) must contain a . (dot)
     If InStr(strArray(1), ".") <= 0 Then
         blnIsItValid = False
         IsEmailValid = blnIsItValid
         Exit Function
     End If
- 
-    ' check the length oh the extension 
+
+    ' check the length oh the extension
     i = Len(strArray(1)) - InStrRev(strArray(1), ".")
     ' the length of the extension can be only 2, 3, or 4
     ' to cover the new "info" extension
@@ -3357,10 +3390,10 @@ Function IsEmailValid(strEmail)
         IsEmailValid = blnIsItValid
         Exit Function
     End If
- 
-    ' finally it's OK 
+
+    ' finally it's OK
     IsEmailValid = blnIsItValid
-   
+
  End Function
 %>
 
@@ -3400,7 +3433,7 @@ Class FreeASPUpload
 		uploadedYet = false
 		internalChunkSize = DEFAULT_ASP_CHUNK_SIZE
 	End Sub
-	
+
 	Private Sub Class_Terminate()
 		If IsObject(UploadedFiles) Then
 			UploadedFiles.RemoveAll()
@@ -3422,17 +3455,17 @@ Class FreeASPUpload
 	Public Property Get Files()
 		Files = UploadedFiles.Items
 	End Property
-	
+
     Public Property Get Exists(sIndex)
             Exists = false
             If FormElements.Exists(LCase(sIndex)) Then Exists = true
     End Property
-        
+
     Public Property Get FileExists(sIndex)
         FileExists = false
             if UploadedFiles.Exists(LCase(sIndex)) then FileExists = true
     End Property
-        
+
     Public Property Get chunkSize()
 		chunkSize = internalChunkSize
 	End Property
@@ -3462,7 +3495,7 @@ Class FreeASPUpload
 			fileItem.Path = filePath
 		 Next
 	End Sub
-	
+
 	public sub SaveOne(path, num, byref outFileName, byref outLocalFileName)
 		Dim streamFile, fileItems, fileItem, fs
 
@@ -3473,10 +3506,10 @@ Class FreeASPUpload
 		if UploadedFiles.Count > 0 then
 			fileItems = UploadedFiles.Items
 			set fileItem = fileItems(num)
-		
+
 			outFileName = fileItem.FileName
 			outLocalFileName = GetFileName(path, outFileName)
-		
+
 			Set streamFile = Server.CreateObject("ADODB.Stream")
 			streamFile.Type = adTypeBinary
 			streamFile.Open
@@ -3514,7 +3547,7 @@ Class FreeASPUpload
 		Dim nPosFile, nPosBound
 		Dim sFieldName, osPathSep, auxStr
 		Dim readBytes, readLoop, tmpBinRequest
-		
+
 		'RFC1867 Tokens
 		Dim vDataSep
 		Dim tNewLine, tDoubleQuotes, tTerm, tFilename, tName, tContentDisp, tContentType
@@ -3541,7 +3574,7 @@ Class FreeASPUpload
 			Loop
 			StreamRequest.WriteText(VarArrayBinRequest)
 			StreamRequest.Flush()
-			if Err.Number <> 0 then 
+			if Err.Number <> 0 then
 				response.write "<br><br><B>System reported this error:</B><p>"
 				response.write Err.Description & "<p>"
 				response.write "The most likely cause for this error is the incorrect setup of AspMaxRequestEntityAllowed in IIS MetaBase. Please see instructions in the <A HREF='http://www.freeaspupload.net/freeaspupload/requirements.asp'>requirements page of freeaspupload.net</A>.<p>"
@@ -3552,7 +3585,7 @@ Class FreeASPUpload
 		nCurPos = FindToken(tNewLine,1) 'Note: nCurPos is 1-based (and so is InstrB, MidB, etc)
 
 		If nCurPos <= 1  Then Exit Sub
-		 
+
 		'vDataSep is a separator like -----------------------------21763138716045
 		vDataSep = MidB(VarArrayBinRequest, 1, nCurPos-1)
 
@@ -3563,23 +3596,23 @@ Class FreeASPUpload
 		nLastSepPos = FindToken(vDataSep & tTerm, 1)
 
 		Do Until nDataBoundPos = nLastSepPos
-			
+
 			nCurPos = SkipToken(tContentDisp, nDataBoundPos)
 			nCurPos = SkipToken(tName, nCurPos)
 			sFieldName = ExtractField(tDoubleQuotes, nCurPos)
 
 			nPosFile = FindToken(tFilename, nCurPos)
 			nPosBound = FindToken(vDataSep, nCurPos)
-			
+
 			If nPosFile <> 0 And  nPosFile < nPosBound Then
 				Dim oUploadFile
 				Set oUploadFile = New UploadedFile
-				
+
 				nCurPos = SkipToken(tFilename, nCurPos)
 				auxStr = ExtractField(tDoubleQuotes, nCurPos)
                 ' We are interested only in the name of the file, not the whole path
                 ' Path separator is \ in windows, / in UNIX
-                ' While IE seems to put the whole pathname in the stream, Mozilla seem to 
+                ' While IE seems to put the whole pathname in the stream, Mozilla seem to
                 ' only put the actual file name, so UNIX paths may be rare. But not impossible.
                 osPathSep = "\"
                 if InStr(auxStr, osPathSep) = 0 then osPathSep = "/"
@@ -3587,16 +3620,16 @@ Class FreeASPUpload
 
 				if (Len(oUploadFile.FileName) > 0) then 'File field not left empty
 					nCurPos = SkipToken(tContentType, nCurPos)
-					
+
                     auxStr = ExtractField(tNewLine, nCurPos)
                     ' NN on UNIX puts things like this in the stream:
                     '    ?? python py type=?? python application/x-python
 					oUploadFile.ContentType = Right(auxStr, Len(auxStr)-InStrRev(auxStr, " "))
 					nCurPos = FindToken(tNewLine, nCurPos) + 4 'skip empty line
-					
+
 					oUploadFile.Start = nCurPos+1
 					oUploadFile.Length = FindToken(vDataSep, nCurPos) - 2 - nCurPos
-					
+
 					If oUploadFile.Length > 0 Then UploadedFiles.Add LCase(sFieldName), oUploadFile
 				End If
 			Else
@@ -3604,11 +3637,11 @@ Class FreeASPUpload
 				nCurPos = FindToken(tNewLine, nCurPos) + 4 'skip empty line
 				nEndOfData = FindToken(vDataSep, nCurPos) - 2
 				fieldValueuniStr = ConvertUtf8BytesToString(nCurPos, nEndOfData-nCurPos)
-				If Not FormElements.Exists(LCase(sFieldName)) Then 
+				If Not FormElements.Exists(LCase(sFieldName)) Then
 					FormElements.Add LCase(sFieldName), fieldValueuniStr
 				else
                     FormElements.Item(LCase(sFieldName))= FormElements.Item(LCase(sFieldName)) & ", " & fieldValueuniStr
-                end if 
+                end if
 
 			End If
 
@@ -3648,33 +3681,33 @@ Class FreeASPUpload
 		Next
 	End Function
 
-	Private Function ConvertUtf8BytesToString(start, length)	
+	Private Function ConvertUtf8BytesToString(start, length)
 		StreamRequest.Position = 0
-	
+
 	    Dim objStream
 	    Dim strTmp
-	    
+
 	    ' init stream
 	    Set objStream = Server.CreateObject("ADODB.Stream")
 	    objStream.Charset = "utf-8"
 	    objStream.Mode = adModeReadWrite
 	    objStream.Type = adTypeBinary
 	    objStream.Open
-	    
+
 	    ' write bytes into stream
 	    StreamRequest.Position = start+1
 	    StreamRequest.CopyTo objStream, length
 	    objStream.Flush
-	    
+
 	    ' rewind stream and read text
 	    objStream.Position = 0
 	    objStream.Type = adTypeText
 	    strTmp = objStream.ReadText
-	    
+
 	    ' close up and return
 	    objStream.Close
 	    Set objStream = Nothing
-	    ConvertUtf8BytesToString = strTmp	
+	    ConvertUtf8BytesToString = strTmp
 	End Function
 End Class
 
@@ -3753,7 +3786,7 @@ Function GetFileName(strSaveToPath, FileName)
     strTempFileName = left(FileName, p-1)
     NewFullPath = strSaveToPath & "\" & FileName
     Flag = False
-    
+
     Do Until Flag = True
         If objFSO.FileExists(NewFullPath) = False Then
             Flag = True
@@ -3763,16 +3796,21 @@ Function GetFileName(strSaveToPath, FileName)
             NewFullPath = strSaveToPath & "\" & strTempFileName & Counter & "." & FileExt
         End If
     Loop
-End Function 
+End Function
 
 Function FixURLs(strMessage, intPosition)
 
    Dim intStartURL, intEndURL, strURL, strNewMessage
-   
+
    If InStr(intPosition,LCase(strMessage),"http") Then
       intStartURL = InStr(intPosition,LCase(strMessage),"http")
-      If InStr(InStr(intPosition,LCase(strMessage),"http"),LCase(strMessage)," ") < InStr(InStr(intPosition,LCase(strMessage),"http"),LCase(strMessage),vbCRLF) Then
-         intEndURL = InStr(InStr(intPosition,LCase(strMessage),"http"),LCase(strMessage)," ")
+
+      If InStr(InStr(intPosition,LCase(strMessage),"http"),LCase(strMessage)," ") <> 0 Then
+         If InStr(InStr(intPosition,LCase(strMessage),"http"),LCase(strMessage)," ") < InStr(InStr(intPosition,LCase(strMessage),"http"),LCase(strMessage),vbCRLF) Then
+            intEndURL = InStr(InStr(intPosition,LCase(strMessage),"http"),LCase(strMessage)," ")
+         Else
+            intEndURL = InStr(InStr(intPosition,LCase(strMessage),"http"),LCase(strMessage),vbCRLF)
+         End If
       Else
          intEndURL = InStr(InStr(intPosition,LCase(strMessage),"http"),LCase(strMessage),vbCRLF)
       End If
@@ -3787,21 +3825,21 @@ Function FixURLs(strMessage, intPosition)
    If InStr(strURL," ") > 0 Then
       strNewMessage = strMessage
    Else
-      strNewMessage = Replace(strMessage,strURL,"<a href=""" & Replace(strURL,vbCRLF,"") & """>Link</a>")
+      strNewMessage = Replace(strMessage,strURL,"<a href=""" & Replace(strURL,vbCRLF,"") & """ target=""_blank"">Link</a>")
    End If
-   
+
    'Remove iframes
    strNewMessage = Replace(strNewMessage,"<iframe","")
    strNewMessage = Replace(strNewMessage,"</iframe>","")
-   
+
    If intEndURL <> 0 Then
       If InStr(intEndURL,LCase(strNewMessage),"http") Then
          strNewMessage = FixURLs(strNewMessage,intEndURL)
       End If
    End If
-   
+
    FixURLs = strNewMessage
-   
+
 End Function
 
 Function HideText(strMessage)
@@ -3879,7 +3917,7 @@ Function BuildReturnLink(bolIncludeID)
 
    If strLinkID <> "" Then
       BuildReturnLink = BuildReturnLink & "&ID=" & Replace(strLinkID," ","%20")
-   End If   
+   End If
    If strLinkLocation <> "" Then
       BuildReturnLink = BuildReturnLink & "&Location=" & Replace(strLinkLocation," ","%20")
    End If
@@ -3919,7 +3957,7 @@ Function BuildReturnLink(bolIncludeID)
    If strLinkViewed <> "" Then
       BuildReturnLink = BuildReturnLink & "&Viewed=" & strLinkViewed
    End If
-   
+
    If BuildReturnLink <> "" Then
       BuildReturnLink = "?" & Right(BuildReturnLink,(Len(BuildReturnLink)-1))
    End If
@@ -3933,31 +3971,31 @@ Function GetUser
    Const USERNAME = 1
 
    Dim strUserAgent, strSessionID, objSessionLookup
-   
+
    'Get some needed data
    strSessionID = Request.Cookies("SessionID")
    strUserAgent = Request.ServerVariables("HTTP_USER_AGENT")
-   
+
    'Send them to the logon screen if they don't have a Session ID
    If strSessionID = "" Then
       SendToLogonScreen
 
    'Get the username from the database
    Else
-   
+
       strSQL = "SELECT ID,UserName,SessionID,IPAddress,UserAgent,ExpirationDate FROM Sessions "
       strSQL = strSQL & "WHERE UserAgent='" & Left(Replace(strUserAgent,"'","''"),250) & "' And SessionID='" & Replace(strSessionID,"'","''") & "'"
       strSQL = strSQL & " And ExpirationDate > Date()"
       Set objSessionLookup = Application("Connection").Execute(strSQL)
-      
+
       'If a session isn't found for then kick them out
       If objSessionLookup.EOF Then
          SendToLogonScreen
       Else
          GetUser = objSessionLookup(USERNAME)
       End If
-   End If  
-   
+   End If
+
 End Function
 %>
 
@@ -3965,7 +4003,7 @@ End Function
 Sub SendToLogonScreen
 
    Dim strReturnLink, strSourcePage
-      
+
    'Build the return link before sending them away.
    strReturnLink = BuildReturnLink(True)
    strSourcePage = Request.ServerVariables("SCRIPT_NAME")
@@ -3975,15 +4013,15 @@ Sub SendToLogonScreen
    Else
       strReturnLink = strReturnLink & "&SourcePage=" & strSourcePage
    End If
-   
+
    Response.Redirect("login.asp" & strReturnLink)
-   
-End Sub 
+
+End Sub
 %>
 
 <%Sub VersionProblem %>
 
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
    <html>
    <head>
