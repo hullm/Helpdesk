@@ -1133,11 +1133,12 @@ End Function
 <%             If strRole <> "Data Viewer" Then %>
 <%                If objRecordSet(Status) = "Complete" Then %>
                      <input type="submit" value="Open Ticket" name="cmdSubmit">
+                     <input type="button" value="Print" onClick="window.open('print.asp?ID=<%=intID%>','newwin');">
 <%                Else %>
+                     <input type="button" value="Print" onClick="window.open('print.asp?ID=<%=intID%>','newwin');">
                      <input type="submit" value="Save" name="cmdSubmit">
 <%                End If
                End If %>
-                  <input type="button" value="Print" onClick="window.open('print.asp?ID=<%=intID%>','newwin');">
    					&nbsp;</div></td>
    						</tr>
    					</table>
