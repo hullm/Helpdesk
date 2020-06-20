@@ -71,6 +71,13 @@ Sub Session_OnStart
    Application("TSCHelpDesk") = ""
    Application("AndroidBarColor") = "15317E"
    Application("InventoryURL") = ""
+   Application("PhotoLocation") = "C:\Photos"
+   Application("LibreNMSServer") = ""
+   Application("LibreNMSToken") = ""
+   Application("BandwidthPort") = ""
+   Application("WeatherSite") = "Title of Widget"
+   Application("WeatherURL") = "https://forecast7.com/en/43d43n73d71/location/?unit=us"
+   Application("BellScheduleOffset") = 0 'In Seconds
    
    If Application("WebVersion") <> Application("DBVersion") Then
       Application("VersionError") = True
