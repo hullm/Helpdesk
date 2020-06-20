@@ -1,7 +1,7 @@
 Change Log - Help Desk
 
 0.6a Beta - Released 10/13/04
-   - First version in use.
+  - First version in use.
 
 0.7 Beta - Released 12/7/04
    - Added ability to add multiple addresses to the Admin Email field in the setup page.
@@ -444,7 +444,7 @@ Change Log - Help Desk
    - Fixed a bug in the view page that would cause it to load all tickets if it lost it's post data.  If that happens now you'll
      be redirected to the main page instead of loading all tickets.
    - Added support for the Nexus 9.
-1.02 Released 9/25/2015
+1.02 - Released 10/1/2015
    - Moved the default location for the icons away from WSWHEBOCES to Lake George.
    - Added support for Android 5.0 Lollipop's new colored address bar.
    - Added the Nexus 9 to device detection.
@@ -461,3 +461,14 @@ Change Log - Help Desk
    - Fixed a bug that wouldn't display a techs name in the charts if they didn't have a space in their name.
    - Added support for the Nexus 6.
    - Fixed a bug that wouldn't show a ticket properly if the user entered "-->" in their ticket.
+1.03
+   - Added some autocomplete code the the username field when entering a ticket for someone else.
+   - When you open links on the view and modify pages they will open up in a new window/tab.
+   - Fixed a bug that caused the icon not to load on the mobil version of some sites.
+   - Added Windows 10 detection.
+   - Fixed a bug that wouldn't show multiple URLs properly if there wasn't a space after the first URL.
+   - Added the user message to the user login screen.
+   - Added duplicate tickets detection on submission.
+   - Added integration with the inventory system.   Add URL to global.asa and link to person will appear on ticket.  Also
+     if you set a custom varable to anything that contains the word asset it will turn the asset tag into a link to the
+     device in the inventory.  If the device isn't found it brings you to the search page with the asset tag filled out.

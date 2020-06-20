@@ -69,6 +69,8 @@ Sub Session_OnStart
    Application("ForceSSL") = True
    Application("RemoteSupportLink") = ""
    Application("TSCHelpDesk") = ""
+   Application("AndroidBarColor") = "15317E"
+   Application("InventoryURL") = ""
    
    If Application("WebVersion") <> Application("DBVersion") Then
       Application("VersionError") = True

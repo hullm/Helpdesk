@@ -803,15 +803,17 @@ End Function
    					   <input type="text" name="Name" size="<%=intInputSize%>" value="<%=objRecordSet(Name)%>" >
    <%             End If%>
 
-					<% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
-						<a href="https://helpdesk.lkgeorge.org/inventory/admin/user.asp?UserName=<%=objRecordSet(16)%>" target="_blank">
-							<img src="../themes/<%=Application("Theme")%>/images/inventory.png" width="20" height="20" align="top"/>
-						</a>
-					<% Else %>
-						<a href="https://helpdesk.lkgeorge.org/inventory/admin/user.asp?UserName=<%=objRecordSet(16)%>" target="_blank">
-							<img src="../themes/<%=objNameCheckSet(3)%>/images/inventory.png" width="20" height="20" align="top"/>
-						</a>
-					<% End If %>
+					<% If Application("InventoryURL") <> "" Then 
+                     If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
+                     <a href="<%=Application("InventoryURL")%>/admin/user.asp?UserName=<%=objRecordSet(16)%>" target="_blank">
+                        <img src="../themes/<%=Application("Theme")%>/images/inventory.png" width="20" height="20" align="top"/>
+                     </a>
+                  <% Else %>
+                     <a href="<%=Application("InventoryURL")%>/admin/user.asp?UserName=<%=objRecordSet(16)%>" target="_blank">
+                        <img src="../themes/<%=objNameCheckSet(3)%>/images/inventory.png" width="20" height="20" align="top"/>
+                     </a>
+                  <% End If 
+                  End If %>
    					</td>
    					<td class="showborders" width="9%">Location:</td>
    					<td class="showborders" width="36%">
@@ -986,11 +988,35 @@ End Function
                <tr>
 	<%          If Application("UseCustom1") Then%>
                   <td class="showborders" width="9%"><%=Application("Custom1Text")%>:</td>
-                  <td class="showborders" ><%=objRecordSet(Custom1)%> <input type="hidden" name="Custom1" value="<%=objRecordSet(Custom1)%>"></td>
+   <%             If InStr(LCase(Application("Custom1Text")),"asset") Then
+                     If Application("InventoryURL") <> "" Then %>
+                        <td class="showborders">
+                           <a href="<%=Application("InventoryURL")%>/admin/device.asp?Tag=<%=objRecordSet(Custom1)%>" target="_blank"><%=objRecordSet(Custom1)%></a>
+                           <input type="hidden" name="Custom1" value="<%=objRecordSet(Custom1)%>">
+                        </td>
+   <%                Else %>
+                        <td class="showborders" ><%=objRecordSet(Custom1)%><input type="hidden" name="Custom1" value="<%=objRecordSet(Custom1)%>"></td>
+   <%                End If 
+                  Else %>
+                     <td class="showborders" ><%=objRecordSet(Custom1)%><input type="hidden" name="Custom1" value="<%=objRecordSet(Custom1)%>"></td>
+   <%             End If %>
 	<%			   End If %>
+   
    <% 			If Application("UseCustom2") Then %>
                   <td class="showborders" width="9%"><%=Application("Custom2Text")%>:</td>
-                  <td class="showborders" ><%=objRecordSet(Custom2)%><input type="hidden" name="Custom2" value="<%=objRecordSet(Custom2)%>"></td>
+   <%             If InStr(LCase(Application("Custom2Text")),"asset") Then
+                     If Application("InventoryURL") <> "" Then %>
+                        <td class="showborders">
+                           <a href="<%=Application("InventoryURL")%>/admin/device.asp?Tag=<%=objRecordSet(Custom2)%>" target="_blank"><%=objRecordSet(Custom2)%></a>
+                           <input type="hidden" name="Custom2" value="<%=objRecordSet(Custom2)%>">
+                        </td>
+   <%                Else %>
+                        <td class="showborders" ><%=objRecordSet(Custom2)%><input type="hidden" name="Custom2" value="<%=objRecordSet(Custom2)%>"></td>
+   <%                End If 
+                  Else %>
+                     <td class="showborders" ><%=objRecordSet(Custom2)%><input type="hidden" name="Custom2" value="<%=objRecordSet(Custom2)%>"></td>
+   <%             End If %>
+      
    <%          Else %>
 					<td class="showborders" width="9%">&nbsp;</td>
 					<td class="showborders" >&nbsp;</td>
