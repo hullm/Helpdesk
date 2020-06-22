@@ -732,7 +732,7 @@ Sub UpgradeDatabase
       strSQL = "CREATE TABLE Subnets(" & vbCRLF
       strSQL = strSQL & "ID AUTOINCREMENT PRIMARY KEY,"
       strSQL = strSQL & "Subnet TEXT(255) WITH COMPRESSION,"
-      strSQL = strSQL & "Location TEXT(255) WITH COMPRESSIO);"
+      strSQL = strSQL & "Location TEXT(255) WITH COMPRESSION);"
       Application("Connection").Execute(strSQL)
       
       Response.Write("<tr><td align=""center"">Subnets Table: Created </td></tr>")
