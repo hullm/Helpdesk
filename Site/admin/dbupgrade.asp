@@ -5,9 +5,7 @@
 
 'This page contains some tools that can help minor things to the database.
 
-strVersion = "1.02"
-
-On Error Resume Next
+strVersion = "1.03"
 
 'Redirect the user the SSL version if required
 If Application("ForceSSL") Then
@@ -206,6 +204,7 @@ Sub UpgradeDatabase
    bolCheckIns = False
    bolSessions = False
    bolSubnets = False
+   bolPeople = False
    For Each Table in objCatalog.Tables
       Select Case LCase(Table.Name)
          Case "message"
@@ -236,6 +235,8 @@ Sub UpgradeDatabase
             bolSessions = True
          Case "subnets"
             bolSubnets = True
+         Case "people"
+            bolPeople = True
       End Select
    Next
    '******************************************************************************************************
@@ -731,10 +732,23 @@ Sub UpgradeDatabase
       strSQL = "CREATE TABLE Subnets(" & vbCRLF
       strSQL = strSQL & "ID AUTOINCREMENT PRIMARY KEY,"
       strSQL = strSQL & "Subnet TEXT(255) WITH COMPRESSION,"
-      strSQL = strSQL & "Location TEXT(255) WITH COMPRESSION);"
+      strSQL = strSQL & "Location TEXT(255) WITH COMPRESSIO);"
       Application("Connection").Execute(strSQL)
       
       Response.Write("<tr><td align=""center"">Subnets Table: Created </td></tr>")
+   Else
+      'Response.Write("<tr><td align=""center"">Subnets Table: Already Exists </td></tr>")
+   End If
+   '******************************************************************************************************   
+   'Create the People table
+   If NOT bolPeople Then
+      strSQL = "CREATE TABLE People(" & vbCRLF
+      strSQL = strSQL & "ID AUTOINCREMENT PRIMARY KEY,"
+      strSQL = strSQL & "UserName TEXT(255) WITH COMPRESSION,"
+      strSQL = strSQL & "StudentID INTEGER);"
+      Application("Connection").Execute(strSQL)
+      
+      Response.Write("<tr><td align=""center"">People Table: Created </td></tr>")
    Else
       'Response.Write("<tr><td align=""center"">Subnets Table: Already Exists </td></tr>")
    End If
