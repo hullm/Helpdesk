@@ -76,7 +76,7 @@ Sub AccessGranted
 'On Error Resume Next
 
 'Get the information on the last 6 tickets
-strSQL = "SELECT Top 6 Main.ID, DisplayName, Location, SubmitTime, SubmitDate, TicketViewed, Problem, Custom1, StudentID, name, Custom2" & vbCRLF
+strSQL = "SELECT Top 6 Main.ID, DisplayName, Location, SubmitTime, SubmitDate, TicketViewed, Problem, Custom1, StudentID, name, Custom2, EMail" & vbCRLF
 strSQL = strSQL & "FROM Main" & vbCRLF
 strSQL = strSQL & "LEFT OUTER JOIN People ON Main.Name = People.UserName" & vbCRLF
 strSQL = strSQL & "WHERE Status <> 'Complete'" & vbCRLF
@@ -418,7 +418,7 @@ End If
               <div class="card-block">
                 <div class = "row">
                   <div class = "col-md-4 picture">
-                    <% If IsNumeric(Left(objRecentTickets(9),1)) Then
+                    <% If IsNumeric(Left(objRecentTickets(9),1)) or InStr(Left(objRecentTickets(11),InStr(objRecentTickets(11),"@")),".") > 0 Then
                       Set objFSO = CreateObject("Scripting.FileSystemObject")
                         If objFSO.FileExists(Application("PhotoLocation") & "\students\" & objRecentTickets(8) & ".jpg") Then %>
                           <img src="/photos/Students/<%=objRecentTickets(8)%>.jpg" alt="Avatar" style="width:100%;">
