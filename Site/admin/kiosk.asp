@@ -7,7 +7,7 @@
 
 Option Explicit
 
-'On Error Resume Next
+On Error Resume Next
 
 Dim objNetwork, strUser, strSQL, objNameCheckSet, strRole, objRecentTickets, objNumOpenTicketsPerLocation
 Dim objNumOpenTicketsPerTech, objCompletedTickets, objTodaysNewTickets, intTodaysNewTickets
@@ -73,7 +73,7 @@ End If
 
 Sub AccessGranted
 
-'On Error Resume Next
+On Error Resume Next
 
 'Get the information on the last 6 tickets
 strSQL = "SELECT Top 6 Main.ID, DisplayName, Location, SubmitTime, SubmitDate, TicketViewed, Problem, Custom1, StudentID, name, Custom2, EMail" & vbCRLF
