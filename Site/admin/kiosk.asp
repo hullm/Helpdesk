@@ -437,10 +437,16 @@ End If
                   <div class = "col-md-8">
                     <div class = "container">
                       <div class = "row">
-                        <% If objRecentTickets(2) = "High School" Then%>
+                  <% If objRecentTickets(2) = "High School" Then%>
                           <ticket_info>HS - <%=objRecentTickets(7)%></ticket_info>
                   <% ElseIf objRecentTickets(2) = "Elementary" Then%>
-                  <ticket_info>ES - <%=objRecentTickets(7)%></ticket_info>
+                          <ticket_info>ES - <%=objRecentTickets(7)%></ticket_info>
+                  <% ElseIf objRecentTickets(2) = "Middle School" Then%>
+                          <ticket_info>MS - <%=objRecentTickets(7)%></ticket_info>
+                  <% ElseIf objRecentTickets(2) = "Business Office" Then%>
+                          <ticket_info>BO - <%=objRecentTickets(7)%></ticket_info>
+                  <% ElseIf objRecentTickets(2) = "Bus Garage" Then%>
+                          <ticket_info>Garage - <%=objRecentTickets(7)%></ticket_info>
                   <% Else %>
                   <ticket_info><%=objRecentTickets(2)%> - <%=objRecentTickets(7)%></ticket_info>
                   <% End If %>
