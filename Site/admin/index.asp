@@ -1,1408 +1,2826 @@
 <%@LANGUAGE="VBSCRIPT" CODEPAGE="1252"%>
 <%
-'Created by Matthew Hull on 10/12/04
-'Last Updated 6/16/14
+'Created by Matthew Hull on 10/16/14
+'Last Updated 1/14/18
 
-'This is the administrators main page.  From here you can run some of the pre-made queries.
- 
+'This is the main admin page for the inventory website
+
 Option Explicit
 
 On Error Resume Next
 
-Dim strSQL, objLocationSet, objStatusSet, objTechSet, strLocation, strTech
-Dim objCategorySet, objRecordSet, intCallCount, intOpenCallCount, strCategory
-Dim intPercentOpen, intTotalTime, intAvgOpenTime, intEvents, strAvgTicketTime
-Dim strDays, strHours, strMinutes, objNetwork, strUser, objNameCheckSet
-Dim objUpdateRequested, objYourUpdateRequests, bolNotifications, bolShowEvents
-Dim intID, strDate, strTime, strChangeType, strChangedBy, strShowEvents
-Dim strUserName, strCMD, strNewTicketMessage, strCurrentUser, strUserAgent
-Dim strRole, objMessage, strMessageFont, objTicketCheck, strTicketCheck
-Dim objTracking, objUnViewedTickets, objAvgTicketTime, objTodaysTicketCount
-Dim intTicketCount, objCompleteTicketCount, intCompleteCount, bolMobileVersion
-Dim objCheckIns, bolShowLogout, intZoom, intInputSize
-
-'Redirect the user the SSL version if required
-If Application("ForceSSL") Then
-   If Request.ServerVariables("SERVER_PORT")=80 Then
-      If Request.ServerVariables("QUERY_STRING") = "" Then
-         Response.Redirect "https://" & Request.ServerVariables("SERVER_NAME") & Request.ServerVariables("URL")
-      Else
-         Response.Redirect "https://" & Request.ServerVariables("SERVER_NAME") & Request.ServerVariables("URL") & "?" & Request.ServerVariables("QUERY_STRING")
-      End If
-   End If
-End If
-
-'If the database and the website are not the same version then let them know
-If Application("VersionError") Then
-   VersionProblem
-End If
-
-strCMD = Request.Form("Submit")
-
-'Get the users logon name
-Set objNetwork = CreateObject("WSCRIPT.Network")   
-strUser = objNetwork.UserName
-
-'Check and see if anonymous access is enabled
-If LCase(Left(strUser,4)) = "iusr" Then
-   strUser = GetUser
-   bolShowLogout = True
-Else
-   bolShowLogout = False
-End If
-
-strUserAgent = Request.ServerVariables("HTTP_USER_AGENT")
-
-Select Case strCMD
-   Case "New Ticket"
-      strUserName = Request.Form("UserName")
-      If strUserName = "" Then
-         Response.Redirect("../index.asp?username=<empty>" & strUserName)
-      Else
-         If strUserName = GetFirstandLastName(strUserName) Then
-            strNewTicketMessage = "Invalid Username"
-         Else
-            Response.Redirect("../index.asp?username=" & strUserName)
-         End If
-      End If
-   Case "Submit"
-      intID = Request.Form("ID")
-      strSQL = "SELECT ID FROM Main WHERE ID=" & intID
-      Set objTicketCheck = Application("Connection").Execute(strSQL)
-      If objTicketCheck.EOF Then
-         strTicketCheck = "Invalid Ticket Number"
-      Else
-         Response.Redirect("modify.asp?ID=" & intID)
-      End If
-   Case "Mobile Site"
-      Response.Cookies("SiteVersion") = "Mobile"
-      Response.Cookies("SiteVersion").Expires = Date() + 14
-      GetUser
-   Case "Full Site"
-      Response.Cookies("SiteVersion") = "Full"
-      Response.Cookies("SiteVersion").Expires = Date() + 14
-      GetUser
-      
-End Select
-
-If Request.QueryString("Created") = "True" Then
-   strNewTicketMessage = "Submitted"
-End If
-
-'Figure out if the log should be displayed.
-strShowEvents = Request.Form("cmdSubmit")
-If strShowEvents = "Show Log" Then
-   bolShowEvents = True
-Else
-   bolShowEvents = False
-End If
-
-intEvents = Request.Form("Events")
-If intEvents = "" Then
-   intEvents = 10
-End If
-
-'Create the SQL string that will count the number off total calls and open calls
-strSQL = "Select Main.Status,Main.OpenTime" & vbCRLF
-strSQL = strSQL & "From Main"
-
-'Execute the SQL string
-Set objRecordSet = Application("Connection").Execute(strSQL)
-
-intCallCount = 0
-intOpenCallCount = 0
-intTotalTime = 0
-Do Until objRecordSet.EOF
-   intCallCount = intCallCount + 1
-   If objRecordSet(0) <> "Complete" Then
-      intOpenCallCount = intOpenCallCount + 1
-   Else
-      If objRecordSet(1) <> "" Then
-         intTotalTime = intTotalTime + objRecordSet(1)
-      End If
-   End If
-   objRecordSet.MoveNext
-Loop
-
-intAvgOpenTime = Round(intTotalTime  / (intCallCount - intOpenCallCount),0)
-intPercentOpen = Round(((intOpenCallCount / intCallCount) * 100),5)
-
-strSQL = "SELECT Avg(OpenTime) AS AvgOfOpenTime" & vbCRLF
-strSQL = strSQL & "FROM Main" & vbCRLF
-strSQL = strSQL & "Where Main.OpenTime<>''"
-Set objAvgTicketTime = Application("Connection").Execute(strSQL) 
-
-strDays = Int(objAvgTicketTime(0)/1440)
-strHours = Int((objAvgTicketTime(0)-strDays*1440)/60)
-strMinutes = (objAvgTicketTime(0)-(strDays*1440)-(strHours*60))
-strAvgTicketTime = Int(strDays) & "d " & Int(strHours) & "h " & Int(strMinutes) & "m" 
-
-'Build the SQL string for the Location pull down box
-strSQL = "Select Location.Location" & vbCRLF
-strSQL = strSQL & "From Location" & vbCRLF
-strSQL = strSQL & "Order By Location.Location;"
-
-'Execute the SQL string
-Set objLocationSet = Application("Connection").Execute(strSQL)
-
-'Build the SQL string for the Status pull down box
-strSQL = "Select Status.Status" & vbCRLF
-strSQL = strSQL & "From Status" & vbCRLF
-strSQL = strSQL & "Order By Status.Status;"
-
-'Execute the SQL string
-Set objStatusSet = Application("Connection").Execute(strSQL)
-
-'Build the SQL string for the Tech pull down box
-strSQL = "Select Tech" & vbCRLF
-strSQL = strSQL & "From Tech" & vbCRLF
-strSQL = strSQL & "Where UserLevel<>'Data Viewer'" & vbCRLF
-strSQL = strSQL & "Order By Tech;"
-
-'Execute the SQL string
-Set objTechSet = Application("Connection").Execute(strSQL)
-
-'Build the SQL string for the Tech pull down box
-strSQL = "Select Category.Category" & vbCRLF
-strSQL = strSQL & "From Category" & vbCRLF
-strSQL = strSQL & "Order By Category.Category;"
-
-'Execute the SQL string
-Set objCategorySet = Application("Connection").Execute(strSQL)
-
-'This code will fix the display name so it matches what is in the database.
-Select Case UCase(strUser)
-   Case "HELPDESK"
-      strCurrentUser = "Heat Help Desk"
-   Case "TPERKINS"
-      strCurrentUser = "Tech Services"
-   Case Else
-      strCurrentUser = GetFirstandLastName(strUser)
-End Select
-
-'Go to the correct site if the buttons are used on the mobile site
-Select Case Request.Form("Site")
-   Case "Settings"
-      Response.Redirect("settings.asp")
-   Case "Search"
-      Response.Redirect("msearch.asp")
-   Case "Stats"
-      Response.Redirect("mstats.asp")
-   Case "Zoom In"
-      Response.Cookies("ZoomLevel") = "ZoomIn"
-      Response.Cookies("ZoomLevel").Expires = Date() + 14
-   Case "Zoom Out"
-      Response.Cookies("ZoomLevel") = "ZoomOut"
-      Response.Cookies("ZoomLevel").Expires = Date() + 14
-End Select
-
-'Set the zoom level
-If Request.Cookies("ZoomLevel") = "ZoomIn" Then
-   If InStr(strUserAgent,"Silk") Then
-      intZoom = 1.4
-   Else
-      intZoom = 1.9
-   End If
-End If
-
-'If an update has been requested let them know
-strSQL = "SELECT Tracking.TrackedBy, Tracking.Ticket" & vbCRLF 
-strSQL= strSQL & "FROM Tracking INNER JOIN Main ON Tracking.Ticket = Main.ID" & vbCRLF
-strSQL = strSQL & "WHERE (Tracking.Type='Request') AND (Main.Tech='" & strCurrentUser & "')"
-Set objUpdateRequested = Application("Connection").Execute(strSQL)
-
-If Not objUpdateRequested.EOF Then
-   bolNotifications = True
-End If
-
-'If the current user is still waiting for an update get the info
-strSQL = "SELECT Main.Tech, Tracking.Ticket" & vbCRLF 
-strSQL= strSQL & "FROM Tracking INNER JOIN Main ON Tracking.Ticket = Main.ID" & vbCRLF
-strSQL = strSQL & "WHERE (Tracking.Type='Request') AND (Tracking.TrackedBy='" & strUser & "')"
-Set objYourUpdateRequests = Application("Connection").Execute(strSQL)
-
-If Not objYourUpdateRequests.EOF Then
-   bolNotifications = True
-End If
-
-'Check and see if the current tech is tracking any tickets
-strSQL = "SELECT Main.Tech, Tracking.Ticket" & vbCRLF
-strSQL = strSQL & "FROM Tracking INNER JOIN Main ON Tracking.Ticket = Main.ID" & vbCRLF
-strSQL = strSQL & "WHERE (Tracking.Type='Track') And (Tracking.TrackedBy='" & strUser & "')"
-Set objTracking = Application("Connection").Execute(strSQL)
-
-If Not objTracking.EOF Then
-   bolNotifications = True
-End If
-
-'Check and see if the current tech has any unviwed tickets
-strSQL = "SELECT ID FROM Main Where TicketViewed=False And Tech='" & strCurrentUser & "'"
-Set objUnViewedTickets = Application("Connection").Execute(strSQL)
-
-If Not objUnViewedTickets.EOF Then
-   bolNotifications = True
-End If
-
-'See if there are any system messages for the techs.
-strSQL = "SELECT Message,Recipient,Type,PositionOnPage,Enabled" & vbCRLF
-strSQL = strSQL & "FROM Message" & vbCRLF
-strSQL = strSQL & "WHERE ID=1"
-
-Set objMessage = Application("Connection").Execute(strSQL)
-
-strSQL = "SELECT Count(ID) AS CountOfTickets" & vbCRLF
-strSQL = strSQL & "FROM Main" & vbCRLF
-strSQL = strSQL & "GROUP BY SubmitDate" & vbCRLF
-strSQL = strSQL & "HAVING SubmitDate=Date()"
-Set objTodaysTicketCount = Application("Connection").Execute(strSQL)
-If objTodaysTicketCount.EOF Then
-   intTicketCount = 0
-Else
-   intTicketCount = objTodaysTicketCount(0)
-End If
-
-strSQL = "SELECT Count(ID) AS CountOfID" & vbCRLF
-strSQL = strSQL & "FROM Main" & vbCRLF
-strSQL = strSQL & "GROUP BY LastUpdatedDate, Status" & vbCRLF
-strSQL = strSQL & "HAVING LastUpdatedDate=Date() AND Status='Complete'"
-Set objCompleteTicketCount = Application("Connection").Execute(strSQL)
-If objCompleteTicketCount.EOF Then
-   intCompleteCount = 0
-Else
-   intCompleteCount = objCompleteTicketCount(0)
-End If
-
-strSQL = "SELECT Tech.Tech, CheckIns.Location, CheckIns.CheckInTime" & vbCRLF
-strSQL = strSQL & "FROM CheckIns INNER JOIN Tech ON CheckIns.Tech = Tech.Username" & vbCRLF
-strSQL = strSQL & "WHERE (((CheckIns.[CheckInDate])=Date()));"
-Set objCheckIns = Application("Connection").Execute(strSQL)
-
-'Build the SQL string
-strSQL = "Select Username, UserLevel, Active, Theme, MobileVersion, TaskListRole, DocumentationRole" & vbCRLF
-strSQL = strSQL & "From Tech" & vbCRLF
-strSQL = strSQL & "WHERE (((Tech.UserName)='" & strUser & "'));"
-
-Set objNameCheckSet = Application("Connection").Execute(strSQL)
-strRole = objNameCheckSet(1)
-bolMobileVersion = objNameCheckSet(4)
+Dim strSiteVersion, bolShowLogout, strUser
+Dim intTag, strFirstName, strLastName, strRole, strDeviceMessage, strUserMessage, strEventMessage
+Dim strColumns, objDisabledUsers, intDisabledUsersCount, intEventNumber, objFirstNames, objLastNames
+Dim strStudentsPerGradeInfo, strOpenEventsInfo, objShell, strStudentsHomeInternetInfo
 
 'See if the user has the rights to visit this page
-If objNameCheckSet(2) Then
-
-   'An error would be generated if the user has NTFS rights to get in but is not found
-   'in the database.  In this case the user is denied access.
-   If Err Then
-      AccessDenied
-   Else
-      AccessGranted
-   End If
+If AccessGranted Then
+	ProcessSubmissions
 Else
-   AccessDenied
-End If
-%>
+	DenyAccess
+End If %>
 
-<%Sub AccessGranted
+<%Sub ProcessSubmissions
 
-   On Error Resume Next 
+	Dim strSQL
 
-   If IsMobile Then
-      MobileVersion
-   ElseIf IsWatch Then
-      WatchVersion
-   Else
-      MainVersion
-   End If   
-   
-End Sub %>
+	'Check and see if anything was submitted to the site
+	Select Case Request.Form("Submit")
+	Case "Search"
+		LookupUser
+		LookupDevice
+		LookupEvent
+	End Select
 
-<%
-Function IsMobile
+	'Get number of devices assigned to disabled students
+	strSQL = "SELECT ID, UserName FROM People WHERE People.Active=False AND People.HasDevice=True"
+	Set objDisabledUsers = Application("Connection").Execute(strSQL)
+	If Not objDisabledUsers.EOF Then
+		Do Until objDisabledUsers.EOF
+			intDisabledUsersCount = intDisabledUsersCount + 1
+			objDisabledUsers.MoveNext
+		Loop
+	End If
 
-   'It's not mobile if the user is requesting the full site
-   Select Case LCase(Request.QueryString("Site"))
-      Case "full"
-         IsMobile = False
-         Response.Cookies("SiteVersion") = "Full"
-         Response.Cookies("SiteVersion").Expires = Date() + 14
-         Exit Function
-      Case "mobile"
-         IsMobile = True
-         Response.Cookies("SiteVersion") = "Mobile"
-         Response.Cookies("SiteVersion").Expires = Date() + 14
-         Exit Function
-      Case "watch"
-         IsMobile = False
-         Response.Cookies("SiteVersion") = "Watch"
-         Response.Cookies("SiteVersion").Expires = Date() + 14
-         Exit Function
-   End Select
-   
-   'Choose the site based on the cookie
-   Select Case LCase(Request.Cookies("SiteVersion"))
-      Case "full"
-         IsMobile = False
-         Exit Function
-      Case "mobile"
-         IsMobile = True
-         Exit Function
-      Case "watch"
-         IsMobile = False
-         Exit Function
-   End Select
-   
-   'It's not mobile if the mobile version is turned off.
-   If Not bolMobileVersion Then
-      IsMobile = False
-      Exit Function
-   End If
+	'Get the list of firstnames for the auto complete
+	strSQL = "SELECT DISTINCT FirstName FROM People WHERE Active=True"
+	Set objFirstNames = Application("Connection").Execute(strSQL)
 
-   'It's not mobile if it's an Android watch
-   If Instr(strUserAgent,"Android") > 0 And InStr(strUserAgent,"Watch") > 0 Then
-      IsMobile = False
-      Exit Function
-   End If
+	'Get the list of lastnames for the auto complete
+	strSQL = "SELECT DISTINCT LastName FROM People WHERE Active=True"
+	Set objLastNames = Application("Connection").Execute(strSQL)
 
-   'Check the user agent for signs they are on a mobile browser
-   If InStr(strUserAgent,"iPhone") Then
-      IsMobile = True
-   ElseIf Instr(strUserAgent,"Android") Then
-      IsMobile = True
-   ElseIf InStr(strUserAgent,"Windows Phone") Then
-      IsMobile = True
-   ElseIf InStr(strUserAgent,"BlackBerry") Then
-      IsMobile = True
-   ElseIf InStr(strUserAgent,"Nintendo") Then
-      IsMobile = True 
-   ElseIf InStr(strUserAgent,"PlayStation Vita") Then
-      IsMobile = True
-   Else
-      IsMobile = False
-   End If 
+	'Display the error message if they were sent back to this page
+	Select Case Request.QueryString("Error")
+		Case "DeviceNotFound"
+			strDeviceMessage = "<div Class=""Error"">Device not found</div>"
+		Case "NoDevicesFound"
+			strDeviceMessage = "<div Class=""Error"">No devices found</div>"
+		Case "UserNotFound"
+			strUserMessage = "<div Class=""Error"">User not found</div>"
+		Case "NoUsersFound"
+			strUserMessage = "<div Class=""Error"">No users found</div>"
+		Case "NoEventsFound"
+			strEventMessage = "<div Class=""Error"">No events found</div>"
+	End Select
 
-End Function 
-%>
+	'Get the chart if needed
+'	If Application("LibreNMSServer") <> "" Then
+'		Set objShell = Server.CreateObject("WScript.Shell")
+'		objShell.Run "powershell ../scripts/CreateChart.ps1 -server """ &  Application("LibreNMSServer") & """ -token """ & Application("LibreNMSToken") & """" & _
+'		" -portID " & Application("BandwidthPort") & " -filename Bandwidth.svg",0,true
+'		Set objShell = Nothing
+'	End If
 
-<%
-Function IsWatch
-
-   'Check and see if it's an Android Watch
-   If Instr(strUserAgent,"Android") > 0 And InStr(strUserAgent,"Watch") > 0 Then
-      IsWatch = True
-   Else
-   
-      'Choose the site based on the cookie
-      Select Case LCase(Request.Cookies("SiteVersion"))
-         Case "watch"
-            IsWatch = True
-         Case Else
-            IsWatch = False
-      End Select
-   
-   End If
-
-End Function 
-%>
-
-<%
-Function IsTablet
-   If InStr(strUserAgent,"Nexus 7") Then
-      IsTablet = True
-   ElseIf InStr(strUserAgent,"Nexus 9") Then  
-      IsTablet = True
-   ElseIf InStr(strUserAgent,"iPad") Then
-      IsTablet = True
-   ElseIf InStr(strUserAgent,"Silk") Then
-      IsTablet = True
-   ElseIf InStr(strUserAgent,"GT-N5110") Then
-      IsTablet = True
-   Else
-      IsTablet = False
-   End If
-End Function
-%>
-
-<%Sub MainVersion 
-
-   Dim intInputSize
-   
-   strUserAgent = Request.ServerVariables("HTTP_USER_AGENT")
-
-   If InStr(strUserAgent,"Android") Or InStr(strUserAgent,"Silk") Then
-      intInputSize = 18
-   Else
-      intInputSize = 25
-   End If
-   
-    %>
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
-   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-   <html>
-   <head>
-      <title>HDL - Admin</title>
-   <% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
-         <link rel="stylesheet" type="text/css" href="../themes/<%=Application("Theme")%>/<%=Application("Theme")%>.css" />
-   <% Else %>
-         <link rel="stylesheet" type="text/css" href="../themes/<%=objNameCheckSet(3)%>/<%=objNameCheckSet(3)%>.css" />
-   <% End If %>
-      <link rel="apple-touch-icon-precomposed" href="<%=Application("IconLocation")%>/ipadadminicon.png" />
-      <link rel="shortcut icon" href="<%=Application("IconLocation")%>/helpdesk.ico" />
-   <% If InStr(strUserAgent,"iPad") or InStr(strUserAgent,"Transformer") Then %>
-         <meta name="viewport" content="width=device-width" />
-   <% End If %>
-   <% If InStr(strUserAgent,"iPhone") Then %>
-         <meta name="viewport" content="initial-scale=.41" />
-   <% End If %>
-   <% If InStr(strUserAgent,"Nexus 9") Then %>
-         <meta name="viewport" content="width=device-width, initial-scale=.99, maximum-scale=1.0, user-scalable=no"/>
-   <% End If %>
-   <% If InStr(strUserAgent,"Nexus 7") Then %>
-         <meta name="viewport" content="width=device-width, initial-scale=.78, maximum-scale=1.0, user-scalable=no"/>
-   <% End If %>
-   <% If InStr(strUserAgent,"Nexus 5") Then %>
-         <meta name="viewport" content="width=device-width, initial-scale=.47, maximum-scale=1.0, user-scalable=no"/>
-   <% End If %>
-   <% If InStr(strUserAgent,"Nexus 6") Then %>
-         <meta name="viewport" content="width=device-width, initial-scale=.53, maximum-scale=1.0, user-scalable=no"/>
-   <% End If %>
-   <% If InStr(strUserAgent,"GT-N5110") Then %>
-         <meta name="viewport" content="width=device-width, initial-scale=.77, maximum-scale=1.0, user-scalable=no"/>
-   <% End If %>
-      <meta name="theme-color" content="#<%=Application("AndroidBarColor")%>">
-   </head>
-   <body>
-
-   <div class="header">
-      <%=Application("SchoolName")%> Help Desk
-   </div>
-   
-   <div class="version">
-      Version <%=Application("Version")%>
-   </div>
-   
-   <hr class="admintopbar" />
-   <div class="admintopbar">
-      <ul class="topbar">
-			<li class="topbar">Home<font class="separator"> | </font></li>
-         <li class="topbar"><a class="linkbar" href="view.asp?Filter=AllOpenTickets">Open Tickets</a><font class="separator"> | </font></li>
-      <% If strRole <> "Data Viewer" Then %>
-         <li class="topbar"><a class="linkbar" href="view.asp?Filter=MyOpenTickets">Your Tickets</a><font class="separator"> | </font></li>  
-      <% End If %>
-      <% If Application("UseTaskList") And objNameCheckSet(5) <> "Deny" Then %>
-         <li class="topbar"><a class="linkbar" href="tasklist.asp">Tasks</a><font class="separator"> | </font></li>
-      <% End If %>
-      <% If Application("UseStats") Then %>
-			<li class="topbar"><a class="linkbar" href="stats.asp">Stats</a><font class="separator"> | </font></li> 
-      <% End If %>
-      <% If Application("UseDocs") And objNameCheckSet(6) <> "Deny" Then %>
-         <li class="topbar"><a class="linkbar" href="docs.asp">Docs</a><font class="separator"> | </font></li>
-      <% End If %>   
-         <li class="topbar"><a class="linkbar" href="settings.asp">Settings</a>
-      <% If objNameCheckSet(1) = "Administrator" Then %> 
-         <font class="separator"> | </font></li>
-         <li class="topbar"><a class="linkbar" href="setup.asp">Admin Mode</a>
-      <% Else %>
-         </li>
-      <% End If %>
-      <% If bolShowLogout Then %>
-         <font class="separator"> | </font></li>
-         <li class="topbar"><a class="linkbar" href="login.asp?action=logout">Log Out</a></li>
-      <% Else %>
-         </li>
-      <% End If %>
-		</ul>
-   </div>
-   
-<% If InStr(strUserAgent,"MSIE") Then %>
-      <hr class="adminbottombarIE"/>
-<% Else %>   
-      <hr class="adminbottombar"/>
-<% End If %>
-   
-   <div align="center">
-   <table border="0" width="750" cellspacing="0" cellpadding="0">
-      <tr>
-         <td width="22%" valign="top">
-         <table>
-            <tr>
-         <% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>
-               <td><img border="0" src="../themes/<%=Application("Theme")%>/images/admin.gif"></td>
-         <% Else %>
-               <td><img border="0" src="../themes/<%=objNameCheckSet(3)%>/images/admin.gif"></td>
-         <% End If %>
-            </tr>
-            <tr>
-               <td>
-               <% If Application("UseStats") Then %>
-                  <a href="stats.asp">Help Desk Statistics</a><br />
-                  Total tickets = <%=intCallCount%> <br />
-                  Open tickets = <a href="view.asp?Filter=AllOpenTickets"><%=intOpenCallCount%></a> <br />
-                  Submitted today = <a href="view.asp?date=<%=Date()%>&type=submitted"><%=intTicketCount%></a> <br />
-                  Closed today = <a href="view.asp?date=<%=Date()%>&type=completed"><%=intCompleteCount%></a> <br />
-                  Avg time = <%=strAvgTicketTime%> <br />
-                  <hr />
-               <% End If %>
-                  <form method="POST" action="index.asp">
-<%                If Not bolShowEvents Then%>
-                     <input type="submit" value="Show Log" name="cmdSubmit">
-<%                   If InStr(Request.ServerVariables("HTTP_USER_AGENT"),"iPad") or InStr(Request.ServerVariables("HTTP_USER_AGENT"),"iPhone") Then %>
-                        <input type="text" name="Events" value="10" size="4"> Events
-<%                   Else %>
-                        <input type="text" name="Events" value="10" size="1"> Events
-<%                   End If %>                     
-                 
-<%                Else %>
-                     <input type="submit" value="Hide Log" name="cmdSubmit"></td>
-<%                End If %>
-                                    
-               </td>
-            </tr>
-               <% If IsTablet Then %>
-                     <tr><td><hr /></td></tr>
-                     <tr><td align="center"><input type="submit" value="Mobile Site" name="Submit"></td></tr>
-               <% End If %>
-               </form>
-         </table>
-
-         <td width="2%">&nbsp;</td>
- 
-         <td width="71%" valign="top">
-<%          If objMessage(4) And (objMessage(1) = "Both" Or objMessage(1) = "Techs") And (objMessage(3) = "Top" or objMessage(3) = "Both") Then 
-               Select Case objMessage(2)
-                  Case "Normal"
-                     strMessageFont = ""
-                  Case "Alert"
-                     strMessageFont = "<font class=""information"">"
-               End Select%>
-               <table>
-                  <tr><td colspan="2">
-                     <%=strMessageFont%><%=Replace(objMessage(0),vbCRLF,"<br />")%> </font>
-                  </td></tr>
-               </table>
-               <hr /> 
-<%          End If %>  
-
-         Search for tickets or enter the ticket number below.
-         <hr>		
-
-      <table border="0" width="100%" cellspacing="0" cellpadding="0">
-      <form method="POST" action="view.asp">
-         <tr>
-            <td height="31" width="84">Status: </td>
-            <td height="31">
-               <select name="Status">			
-                  <option>Any</option>
-                  <option selected="selected">Any Open Ticket</option>
-
-         <% 'Populates the status pulldown list
-            Do Until objStatusSet.EOF
-               If Trim(Ucase(objStatusSet(0))) <> Trim(Ucase(strLocation)) Then
-            %>    <option value="<%=objStatusSet(0)%>"><%=objStatusSet(0)%></option>
-         <%    End If
-               objStatusSet.MoveNext
-            Loop
-            %>
-            
-               </select>
-            </td>
-            <td>User:</td>
-            <td><input type="text" name="User" value="Any" size="<%=intInputSize%>" onfocus="if(this.value=='Any') this.value='';"></td>
-         </tr>
-         <tr>
-            <td height="31" width="84">Category:</td>
-            <td height="31"><select size="1" name="Category">
-            <option>Any</option>
-
-         <% 'Populates the category pulldown list
-            Do Until objCategorySet.EOF      
-               If Trim(Ucase(objCategorySet(0))) <> Trim(Ucase(strCategory)) Then
-         %>       <option value="<%=objCategorySet(0)%>"><%=objCategorySet(0)%></option>
-         <%    End If
-               objCategorySet.MoveNext
-            Loop
-         %> 
-         
-            </select></td>
-            <td>Problem:</td>
-            <td><input type="text" name="Problem" value="Any" size="<%=intInputSize%>" onfocus="if(this.value=='Any') this.value='';"></td>
-         </tr>
-         <tr>
-            <td height="31" width="84">Tech:</td>
-            <td height="31"><select size="1" name="Tech">
-            <option>Any</option>
-            <option>Nobody</option>
-
-         <% 'Populates the tech pulldown list
-            Do Until objTechSet.EOF      
-               If Trim(Ucase(objTechSet(0))) <> Trim(Ucase(strTech)) Then
-         %>       <option value="<%=objTechSet(0)%>"><%=objTechSet(0)%></option>
-         <%    End If
-               objTechSet.MoveNext
-            Loop
-         %>  
-         
-            </select></td>
-            <td>Notes:</td>
-            <td><input type="text" name="Notes" value="Any" size="<%=intInputSize%>" onfocus="if(this.value=='Any') this.value='';"></td>
-         </tr>
-         <tr>
-            <td height="31" width="84">Location:</td>
-            <td height="31"><select size="1" name="Location">
-            <option>Any</option>
-
-         <% 'Populates the location pulldown list
-            Do Until objLocationSet.EOF
-               If Trim(Ucase(objLocationSet(0))) <> Trim(Ucase(strLocation)) Then
-         %>       <option value="<%=objLocationSet(0)%>"><%=objLocationSet(0)%></option>
-         <%    End If
-               objLocationSet.MoveNext
-            Loop
-         %>
-            </select></td>
-            <td>EMail:</td>
-            <td><input type="text" name="EMail" value="Any" size="<%=intInputSize%>" onfocus="if(this.value=='Any') this.value='';"></td>
-            </tr>
-            <tr>
-            <td height="31" width="84">Sort By:</td>
-            <td height="31"><select size="1" name="Sort">
-                           <option>Date - Newest on Top</option>
-                           <option>Date - Oldest on Top</option>
-                           <option>Location - A to Z</option>
-                           <option>Location - Z to A</option>
-                           <option>Tech - A to Z</option>
-                           <option>Tech - Z to A</option>
-            </select>
-
-            <td>Viewed:</td>
-            <td>
-               <select size="1" name="Viewed">
-                  <option>Any</option>
-                  <option>Yes</option>
-                  <option>No</option>
-               </select>
-            </td>
-         </tr>
-         <tr>
-         <td>Submitted:</td>
-         <td>
-            <select size="1" name="Days">
-               <option value="0">Any</option>
-               <option value="1">Today</option>
-               <option value="7">Within the Past Week</option>
-               <option value="14">Within the Past 2 Weeks</option>
-               <option value="30">Within the Past 30 Days</option>
-               <option value="90">Within the Past 90 Days</option>
-               <option value="180">Within the Past 180 Days</option>
-               <option value="-7">Over a Week Ago</option>
-               <option value="-14">Over Two Weeks Ago</option>
-               <option value="-30">Over 30 Days Ago</option>
-               <option value="-90">Over 90 Days Ago</option>
-               <option value="-180">Over 180 Days Ago</option>
-            </select>
-         </td>
-         <td colspan="2">
-            <input type="submit" value="Submit" name="Submit" style="float: right">
-         </td></tr>  
-
-         </form>		
-      </table>
-      <hr />
-      <table width="100%" cellspacing="0" cellpadding="0">
-            <form method="Post" action="index.asp">		
-               <tr>
-                  <td>
-                     View ticket #:&nbsp; <input type="text" name="ID" value="<%=intID%>" size="14">
-               <% If strTicketCheck <> "" Then %>
-                  <font class="missing"><%=strTicketCheck%></font>
-               <% End If %>
-                  </td>
-                  <td>
-                  <input type="submit" value="Submit" name="Submit" style="float: right"></td>
-               </tr>
-            </form>
-      <% If strRole <> "Data Viewer" AND Application("UseAD") Then %>       
-            <tr><td colspan="2"><hr /></td></tr>
-            <form method="POST" action="index.asp">		
-               <tr>
-                  <td colspan="2">
-                     Enter a new ticket.  
-                  <% If strNewTicketMessage = "Submitted" Then %>
-                     <font class="information"><%=strNewTicketMessage%></font>
-                  <% Else %>
-                     <font class="missing"><%=strNewTicketMessage%></font>
-                  <% End If %>
-                  </td>
-               </tr>
-               <tr>
-                  <td>
-                     Username:&nbsp;<input type="text" name="UserName" value="<%=strUserName%>" size="25">
-                  </td>
-                  <td>
-                  <input type="submit" value="New Ticket" name="Submit" style="float: right"></td>
-               </tr>  
-            </form>
-      <% End If %>
-      
-      <% If Not objCheckIns.EOF Then %>
-            <tr><td colspan="2"><hr /></td></tr>
-            <tr><td colspan="2">Current Tech Locations</td></tr>
-            <tr><td colspan="2">
-               <table  width="500">
-                  <tr>
-                     <td>Tech</td>
-                     <td>Location</td>
-                     <td>Time</td>
-                  </tr>
-               <% Do Until objCheckIns.EOF %>
-                     <tr>
-                        <td class="Showborders"><%=objCheckIns(0)%></td>
-                        <td class="Showborders"><%=objCheckIns(1)%></td>
-                        <td class="Showborders"><%=objCheckIns(2)%></td>
-                     </tr>
-               <%    objCheckIns.Movenext
-                  Loop %>
-               </table>
-            </td></tr>
-      <% End If %>
-      
-<%          If bolNotifications Then %>
-               <tr><td colspan="2"><hr /></td></tr>
-               <tr>
-                  <td colspan="2">Notifications:<br />
-                  <ul>
-<%                Do Until objUpdateRequested.EOF%>
-                     <li><%=GetFirstandLastName(objUpdateRequested(0))%> has requested an update on 
-                     <a href="modify.asp?ID=<%=objUpdateRequested(1)%>">Ticket <%=objUpdateRequested(1)%></a>.</li>
-<%                   objUpdateRequested.MoveNext
-                  Loop 
-                  Do Until objYourUpdateRequests.EOF%>
-                     <li>   
-                        <%=objYourUpdateRequests(0)%> has not updated 
-                        <a href="modify.asp?ID=<%=objYourUpdateRequests(1)%>">Ticket <%=objYourUpdateRequests(1)%></a> since your request.
-                     </li>
-<%                   objYourUpdateRequests.MoveNext
-                  Loop 
-                  Do Until objTracking.EOF%>
-                     <li>
-                     You are tracking 
-                        <a href="modify.asp?ID=<%=objTracking(1)%>&ShowLog=Yes">Ticket <%=objTracking(1)%></a>.
-                        Assigned to <%=objTracking(0)%>.
-                     </li>
-<%                   objTracking.MoveNext 
-                  Loop 
-                  Do Until objUnViewedTickets.EOF%>
-                     <li>
-                     You have not viewed  
-                        <a href="modify.asp?ID=<%=objUnViewedTickets(0)%>&ShowLog=Yes">Ticket <%=objUnViewedTickets(0)%></a>.
-                     </li>
-<%                   objUnViewedTickets.MoveNext
-                  Loop%>                   
-                  </ul>
-                  </td>
-               </tr>
-<%          End If %>
-
-<%          If bolShowEvents Then
-               strSQL = "SELECT TOP " & intEvents & " Log.Ticket, Log.UpdateDate, Log.UpdateTime, Log.Type, Log.ChangedBy, Main.Tech, Main.Status, Main.Name, Main.Location" & vbCRLF
-               strSQL = strSQL & "FROM Log INNER JOIN Main ON Log.Ticket = Main.ID" & vbCRLF
-               strSQL = strSQL & "ORDER BY Log.ID DESC;" 
-
-               Set objRecordSet = Application("Connection").Execute(strSQL)%>
-               <tr><td colspan="2"><hr /></td></tr>
-               <tr><td colspan="2">
-               <table>
-                  <tr>
-                     <th class="showborders">Ticket</th>
-                     <th class="showborders">Date</th>
-                     <th class="showborders">Time</th>
-                     <th class="showborders">Change Type</th>
-                     <th class="showborders">Changed By</th>
-                   </tr>
-<%                Do  Until objRecordSet.EOF
-                     intID = objRecordSet(0)
-                     strDate = objRecordSet(1)
-                     strTime = objRecordSet(2)
-                     strChangeType = objRecordSet(3)
-                     Select Case strChangeType
-                        Case "Request Update Complete"
-                           strChangeType = "Update Done"
-                        Case "Cancelled Update Request"
-                           strChangetype = "Cancel Update"
-                     End Select
-                     
-                     If strChangeType = "Request Update Complete" Then
-                        strChangeType = "Update Done"
-                     End If
-                     strChangedBy = GetFirstandLastName(objRecordSet(4)) %>
-                     <tr>
-                        <td class="showborders"><center><a href="modify.asp?ID=<%=intID%>&ShowLog=Yes"><%=intID%></a></center></td>
-                        <td class="showborders"><%=strDate%>&nbsp;&nbsp;</td>
-                        <td class="showborders"><%=strTime%>&nbsp;&nbsp;</td>
-                        <td class="showborders"><%=strChangeType%>&nbsp;&nbsp;</td>
-                        <td class="showborders"><%=strChangedBy%>&nbsp;&nbsp;</td>
-                     </tr>
-<%                   objRecordSet.MoveNext  
-                  Loop%>
-               </table>
-               </td></tr>
-<%          End If %>
-            <tr><td colspan="2"><hr /></td></tr> 
-<%          If objMessage(4) And (objMessage(1) = "Both" Or objMessage(1) = "Techs") And (objMessage(3) = "Bottom" or objMessage(3) = "Both")Then 
-               Select Case objMessage(2)
-                  Case "Normal"
-                     strMessageFont = ""
-                  Case "Alert"
-                     strMessageFont = "<font class=""information"">"
-               End Select%>
-               <tr><td colspan="2">
-                  <%=strMessageFont%><%=Replace(objMessage(0),vbCRLF,"<br />")%> </font>
-               </td></tr>
-               <tr><td colspan="2"><hr /></td></tr> 
-<%          End If %>            
-      </table>
-         </td>
-      </tr>
-
-   </table>
-
-   </div>
-   </body>
-
-   </html>
-<%End Sub%>
-
-<%Sub MobileVersion 
-   
-   intInputSize = 20
-
-   %>
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
-   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-   <html>
-   <head>
-      <title>HDL - Admin</title>
-   <% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>   
-      <link rel="stylesheet" type="text/css" href="../themes/<%=Application("Theme")%>/<%=Application("Theme")%>.css" />
-   <% Else %>
-      <link rel="stylesheet" type="text/css" href="../themes/<%=objNameCheckSet(3)%>/<%=objNameCheckSet(3)%>.css" />
-   <% End If %>
-      <link rel="apple-touch-icon-precomposed" href="<%=Application("IconLocation")%>/ipadadminicon.png" />
-      <link rel="shortcut icon" href="<%=Application("IconLocation")%>/helpdesk.ico" />
-   
-   <% If Request.Cookies("ZoomLevel") = "ZoomIn" Then %>
-      <meta name="viewport" content="width=100,user-scalable=no,initial-scale=<%=intZoom%>" />
-   <% ElseIf InStr(strUserAgent,"Windows Phone") Then %>
-      <meta name="viewport" content="width=375,user-scalable=no" /> 
-   <% Else %>
-      <meta name="viewport" content="width=device-width,user-scalable=no" /> 
-   <% End If %> 
-   
-   <meta name="theme-color" content="#<%=Application("AndroidBarColor")%>">
-
-   </head>
-   
-   <body>  
-      <center><b><%=Application("SchoolName")%> Help Desk Admin</b></center>
-      <center>
-      <table align="center">
-         <tr><td><hr /></td></tr>               
-         <form method="Post" action="view.asp">
-         <tr>
-            <td width="<%=Application("MobileSiteWidth")%>">
-               <div align="center">
-                  <input type="submit" value="Open Tickets" name="filter">
-            <% If strRole <> "Data Viewer" Then %>   
-                  <input type="submit" value="Your Tickets" name="filter">
-            <% End If %>
-            
-            <% If bolShowLogout Then %>   
-                  <input type="submit" value="Log Out" name="Log Out">
-            <% End If %> 
-            
-               </div>
-            </td>
-         </tr>
-         </form>
-         <tr><td><hr /></td></tr>
-      </table>
-      <table align="center">
-<%    If objMessage(4) And (objMessage(1) = "Both" Or objMessage(1) = "Techs") And (objMessage(3) = "Top" or objMessage(3) = "Both") Then 
-         Select Case objMessage(2)
-            Case "Normal"
-               strMessageFont = ""
-            Case "Alert"
-               strMessageFont = "<font class=""information"">"
-         End Select%>
-         <tr><td colspan="2">
-            <%=strMessageFont%><%=Replace(objMessage(0),vbCRLF,"<br />")%> </font>
-         </td></tr>
-         <tr><td colspan="2"><hr /></td></tr> 
-<%    End If %>         
-      <form method="POST" action="view.asp">
-         <tr>
-            <td>
-               Status: 
-            </td>
-            <td>
-               <select name="Status">			
-                  <option>Any</option>
-                  <option selected="selected">Any Open Ticket</option>
-
-            <% 'Populates the status pulldown list
-               Do Until objStatusSet.EOF
-                  If Trim(Ucase(objStatusSet(0))) <> Trim(Ucase(strLocation)) Then
-               %>    <option value="<%=objStatusSet(0)%>"><%=objStatusSet(0)%></option>
-            <%    End If
-                  objStatusSet.MoveNext
-               Loop
-               %>
-               
-               </select>
-            </td>
-         </tr>
-         <tr>
-            <td>
-               Category:
-            </td>
-            <td>
-               <select size="1" name="Category">
-                  <option>Any</option>
-
-            <% 'Populates the category pulldown list
-               Do Until objCategorySet.EOF      
-                  If Trim(Ucase(objCategorySet(0))) <> Trim(Ucase(strCategory)) Then
-            %>       <option value="<%=objCategorySet(0)%>"><%=objCategorySet(0)%></option>
-            <%    End If
-                  objCategorySet.MoveNext
-               Loop
-            %> 
-               </select>
-            </td>
-         </tr>
-         
-         <tr>
-            <td>
-               Tech:
-            </td>
-            <td>
-               <select size="1" name="Tech">
-                  <option>Any</option>
-                  <option>Nobody</option>
-
-               <% 'Populates the tech pulldown list
-                  Do Until objTechSet.EOF      
-                     If Trim(Ucase(objTechSet(0))) <> Trim(Ucase(strTech)) Then
-               %>       <option value="<%=objTechSet(0)%>"><%=objTechSet(0)%></option>
-               <%    End If
-                     objTechSet.MoveNext
-                  Loop
-               %>  
-               
-               </select>
-            </td>
-         </tr>
-         <tr>
-            <td>
-               Location:
-            </td>
-            <td>
-               <select size="1" name="Location">
-                  <option>Any</option>
-
-            <% 'Populates the location pulldown list
-               Do Until objLocationSet.EOF
-                  If Trim(Ucase(objLocationSet(0))) <> Trim(Ucase(strLocation)) Then
-            %>       <option value="<%=objLocationSet(0)%>"><%=objLocationSet(0)%></option>
-            <%    End If
-                  objLocationSet.MoveNext
-               Loop
-            %>
-               </select>
-            </td>
-         </tr>
-         <tr>
-            <td>
-               Sort By:
-            </td>
-            <td>
-               <select size="1" name="Sort">
-                  <option>Date - Newest on Top</option>
-                  <option>Date - Oldest on Top</option>
-                  <option>Location - A to Z</option>
-                  <option>Location - Z to A</option>
-                  <option>Tech - A to Z</option>
-                  <option>Tech - Z to A</option>
-               </select>
-            </td>
-         </tr>
-         <tr>
-            <td>
-               Viewed:
-            </td>
-            <td>
-               <select size="1" name="Viewed">
-                  <option>Any</option>
-                  <option>Yes</option>
-                  <option>No</option>
-               </select>
-               
-            </td>
-         </tr>
-         <tr>
-            <td>Submitted:</td>
-            <td>
-               <select size="1" name="Days">
-                  <option value="0">Any</option>
-                  <option value="1">Today</option>
-                  <option value="7">Within the Past Week</option>
-                  <option value="14">Within the Past 2 Weeks</option>
-                  <option value="30">Within the Past 30 Days</option>
-                  <option value="90">Within the Past 90 Days</option>
-                  <option value="180">Within the Past 180 Days</option>
-                  <option value="-7">Over a Week Ago</option>
-                  <option value="-14">Over Two Weeks Ago</option>
-                  <option value="-30">Over 30 Days Ago</option>
-                  <option value="-90">Over 90 Days Ago</option>
-                  <option value="-180">Over 180 Days Ago</option>
-               </select>
-            </td>
-         </tr>
-         <tr><td>User:</td><td><input type="text" name="User" value="Any" size="<%=intInputSize%>" onfocus="if(this.value=='Any') this.value='';"></td></tr>
-         <tr><td>Problem:</td><td><input type="text" name="Problem" value="Any" size="<%=intInputSize%>" onfocus="if(this.value=='Any') this.value='';"></td></tr>
-         <tr><td>Notes:</td><td><input type="text" name="Notes" value="Any" size="<%=intInputSize%>" onfocus="if(this.value=='Any') this.value='';"><input type="submit" value="Submit" style="float: right"></td></tr>
-         <tr><td colspan="2" width="<%=Application("MobileSiteWidth")%>"><hr /></td></tr>
-         </form>
-      </table>      
-      <table align="center">
-         <form method="post" action="index.asp">
-         <tr>
-            <td colspan="2">Ticket # <input type="text" name="ID" size="10">
-            <input type="submit" value="Submit" name="Submit" style="float: right"> </td>
-         </tr>
-         </form>
-   <% If strTicketCheck <> "" Then %>
-         <tr><td colspan="2"><font class="missing"><%=strTicketCheck%></font></td></tr>
-   <% End If %>
-         
-   <% If strRole <> "Data Viewer" AND Application("UseAD") Then %>       
-         <tr><td colspan="2"><hr /></td></tr>
-         <form method="POST" action="index.asp">		
-            <tr>
-               <td colspan="2">
-                  Enter a new ticket.  
-               <% If strNewTicketMessage = "Submitted" Then %>
-                  <font class="information"><%=strNewTicketMessage%></font>
-               <% Else %>
-                  <font class="missing"><%=strNewTicketMessage%></font>
-               <% End If %>
-               </td>
-            </tr>
-            <tr>
-               <td>
-                  Username:&nbsp;<input type="text" name="UserName" value="<%=strUserName%>" size="15">
-               </td>
-               <td>
-               <input type="submit" value="New Ticket" name="Submit" style="float: right"></td>
-            </tr>  
-         </form>
-   <% End If %>
-         
-         <tr><td colspan="2" width="<%=Application("MobileSiteWidth")%>"><hr /></td></tr>
-<%    If objMessage(4) And (objMessage(1) = "Both" Or objMessage(1) = "Techs") And (objMessage(3) = "Bottom" or objMessage(3) = "Both") Then 
-         Select Case objMessage(2)
-            Case "Normal"
-               strMessageFont = ""
-            Case "Alert"
-               strMessageFont = "<font class=""information"">"
-         End Select%>
-         <tr><td colspan="2">
-            <%=strMessageFont%><%=Replace(objMessage(0),vbCRLF,"<br />")%> </font>
-         </td></tr>
-         <tr><td colspan="2"><hr /></td></tr> 
-<%    End If %> 
-      <form method="Post" action="index.asp">
-         <tr>
-            <td>
-               <!-- <input type="submit" value="Search" name="Site"> -->
-         <% If Application("UseStats") Then %>
-               <input type="submit" value="Stats" name="Site"> 
-         <% End If %>
-               <input type="submit" value="Settings" name="Site">
-            </td>
-            <td align="right">
-               <%=Application("Version")%>
-            </td>
-         </tr>   
-         <% If IsTablet Then %>
-               <tr><td><input type="submit" value="Full Site" name="Submit">
-            <% If Request.Cookies("ZoomLevel") = "ZoomIn" Then%>
-               <input type="submit" value="Zoom Out" name="Site">
-            <% Else %>
-               <input type="submit" value="Zoom In" name="Site">
-         <%    End If %>
-               </td></tr>
-         <% End If %>
-      </form>
-      </table>
-      </center>
-   </body>
-   
-<%End Sub%>
-
-<%Sub WatchVersion %>
-
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
-   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-   <html>
-   <head>
-      <title>HDL - Admin</title>
-   <% If objNameCheckSet(3) = "" or IsNull(objNameCheckSet(3)) Then %>   
-      <link rel="stylesheet" type="text/css" href="../themes/<%=Application("Theme")%>/<%=Application("Theme")%>.css" />
-   <% Else %>
-      <link rel="stylesheet" type="text/css" href="../themes/<%=objNameCheckSet(3)%>/<%=objNameCheckSet(3)%>.css" />
-   <% End If %>
-      <link rel="apple-touch-icon-precomposed" href="<%=Application("IconLocation")%>/ipadadminicon.png" />
-      <link rel="shortcut icon" href="<%=Application("IconLocation")%>/helpdesk.ico" />
-
-   <% If Request.Cookies("ZoomLevel") = "ZoomIn" Then %>
-      <meta name="viewport" content="width=100,user-scalable=no,initial-scale=1.9" />
-   <% Else %>
-      <meta name="viewport" content="width=device-width,user-scalable=no" /> 
-   <% End If %> 
-   </head>
-   <body>
-      <div align="right">
-         Help Desk
-      </div>
-      <hr />
-      <form method="Post" action="view.asp">
-      <div align="center"> 
-         <input type="submit" value="Open Tickets" name="filter"> <br /> <br />
-   <% If strRole <> "Data Viewer" Then %>   
-         <input type="submit" value="Your Tickets" name="filter">
-   <% End If %>
-         
-   <% If bolShowLogout Then %>   
-          <br /> <br /><input type="submit" value="Log Out" name="Log Out">
-   <% End If %> 
-      </div>
-      </form>
-   </body>
-   </html>
-<%End Sub%>
-
-<%Sub AccessDenied 
-
-   If bolShowLogout Then
-      Response.Redirect("login.asp?action=logout")
-   Else
-   %>
-
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
-   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-   <html>
-   <head>
-      <title>HDL - Admin</title>
-      <link rel="stylesheet" type="text/css" href="../themes/<%=Application("Theme")%>/<%=Application("Theme")%>.css" />
-      <link rel="apple-touch-icon-precomposed" href="<%=Application("IconLocation")%>/ipadadminicon.png" />
-      <link rel="shortcut icon" href="<%=Application("IconLocation")%>/helpdesk.ico" />
-      <meta name="viewport" content="width=device-width" />
-   </head>
-   <body>
-      <center><b>Access Denied</b></center>
-   </body>
-   </html>
-   
-<% End If
+	'Set up the variables needed for the site then load it
+	SetupSite
+	DisplaySite
 
 End Sub%>
 
+<%Sub DisplaySite
+
+	Dim strSQL, arrIndexCards, strCard  %>
+
+	<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+	<html>
+	<head>
+		<title><%=Application("SiteName")%></title>
+		<link rel="stylesheet" href="../assets/css/flipclock.css">
+		<link rel="stylesheet" type="text/css" href="../style.css" />
+		<link rel="apple-touch-icon" href="../images/inventory.png" />
+		<link rel="shortcut icon" href="../images/inventory.ico" />
+		<meta name="viewport" content="width=device-width,user-scalable=0" />
+		<meta name="theme-color" content="#333333">
+		<link rel="stylesheet" href="../assets/css/jquery-ui.css">
+		<script src="../assets/js/jquery.js"></script>
+		<script src="../assets/js/jquery-ui.js"></script>
+		<script src="../assets/js/flipclock.min.js"></script>
+		<script src="../assets/js/jquery.flip.min.js"></script>
+		<script src="//www.google.com/jsapi"></script>
+		<script>
+
+			$(document).ready( function () {
+
+			$(".Flipable").flip({
+				axis: 'y',
+				trigger: 'manual'
+			});
+
+			$(".FlipCard").on('click', function(e) {
+				$(e.target).closest(".Flipable").flip('toggle');
+				return false;
+			});
+
+			});
+
+			google.load("visualization", "1", {packages:["corechart"]});
+
+			<%
+			arrIndexCards = Split(Application("IndexCards"),",")
+
+			For Each strCard in arrIndexCards
+				Select Case strCard
+
+					Case "StudentsPerGradeWithMissing"
+						StudentsPerGradeWithMissingJavaScript
+
+					Case "StudentsPerGrade"
+						StudentsPerGradeJavaScript
+
+					Case "OpenEvents"
+						OpenEventsJavaScript
+
+					Case "SpareMacBooks"
+						SpareMacBooksByGradeJavaScript
+
+					Case "SpareiPadsByGrade"
+						SpareiPadsByGradeJavaScript
+
+					Case "SpareiPadsByType"
+						SpareiPadsByTypeJavaScript
+
+					Case "SpareMacBooksFlipiPads"
+						SpareiPadsByGradeJavaScript
+						'//SpareiPadsByTypeJavaScript
+						SpareMacBooksByGradeJavaScript
+
+					Case "SpareiPadsFlipMacBooks"
+						SpareiPadsByGradeJavaScript
+						'SpareiPadsByTypeJavaScript
+						SpareMacBooksByGradeJavaScript
+
+					Case "SpareChromebooks"
+						SpareChromebooksByGradeJavaScript
+
+					Case "AccessHistory"
+						StudentsPerGradeWithOutsideAccess
+						StudentsPerGradeWithInsideAccess
+
+					Case "EventStats"
+						EventCategoriesJavaScript
+						EventTypesJavaScript
+
+				End Select
+			Next
+
+			%>
+
+			$(document).ready(function () {
+
+			<%	If Not IsMobile And Not IsiPad Then%>
+					$( document ).tooltip({track: true});
+			<%	End If %>
+
+		<%	If Application("CountdownTimerTitle") <> "" Then %>
+				var date = new Date("<%=Application("CountdownTimerDate")%>");
+				var now = new Date();
+				var diff = date.getTime()/1000 - now.getTime()/1000;
+				if (diff > 0) {
+					var clock = $('.your-clock').FlipClock(diff, {
+						clockFace: 'DailyCounter',
+						countdown: true
+					});
+				}
+		<%	End If %>
+
+		<%	If Not objFirstNames.EOF Then %>
+				var possibleFirstNames = [
+			<%	Do Until objFirstNames.EOF %>
+					"<%=objFirstNames(0)%>",
+				<%	objFirstNames.MoveNext
+				Loop %>
+			];
+				$( "#FirstNames" ).autocomplete({
+					source: possibleFirstNames
+				});
+		<%	End If %>
+
+		<%	If Not objLastNames.EOF Then %>
+				var possibleLastNames = [
+			<%	Do Until objLastNames.EOF %>
+					"<%=objLastNames(0)%>",
+				<%	objLastNames.MoveNext
+				Loop %>
+			];
+				$( "#LastNames" ).autocomplete({
+					source: possibleLastNames
+				});
+		<%	End If %>
+			})
+
+		</script>
+
+	</head>
+
+	<body class="<%=strSiteVersion%>" >
+
+	<div class="Header"><%=Application("SiteName")%></div>
+		<div>
+			<ul class="NavBar" align="center">
+				<li><a href="index.asp"><img src="../images/home.png" title="Home" height="32" width="32"/></a></li>
+				<li><a href="search.asp"><img src="../images/search.png" title="Search" height="32" width="32"/></a></li>
+				<li><a href="stats.asp"><img src="../images/stats.png" title="Stats" height="32" width="32"/></a></li>
+				<li><a href="log.asp"><img src="../images/log.png" title="System Log" height="32" width="32"/></a></li>
+				<li><a href="add.asp"><img src="../images/add.png" title="Add Person or Device" height="32" width="32"/></a></li>
+				<li><a href="login.asp?action=logout"><img src="../images/logout.png" title="Log Out" height="32" width="32"/></a></li>
+			</ul>
+		</div>
+
+		<div Class="<%=strColumns%>">
+
+		<%
+		arrIndexCards = Split(Application("IndexCards"),",")
+
+		For Each strCard in arrIndexCards
+			Select Case strCard
+				Case "Warning"
+					WarningCard
+
+				Case "Search"
+					SearchCard
+
+				Case "StudentsPerGrade", "StudentsPerGradeWithMissing"
+					StudentsPerGradeCard
+
+				Case "OpenEvents"
+					OpenEventsCard
+
+				Case "SpareMacBooks"
+					SpareMacBooksCard
+
+				Case "SpareiPadsByGrade", "SpareiPadsByType"
+					SpareiPadsCard
+
+				Case "SpareMacBooksFlipiPads"
+					SpareMacBooksFlipiPads
+
+				Case "SpareiPadsFlipMacBooks"
+					SpareiPadsFlipMacBooks
+
+				Case "SpareChromebooks"
+					SpareChromebooksCard
+
+				Case "AccessHistory"
+					AccessHistory
+
+				Case "EventStats"
+					EventStats
+
+				Case "Bandwidth"
+					If Application("LibreNMSServer") <> "" Then
+						BandwidthCard
+					End If
+
+				Case "BandwidthWide"
+					If Application("LibreNMSServer") <> "" Then
+						If IsMobile Then
+							BandwidthCard
+						Else
+							WideBandwidthCard
+						End If
+					End If
+
+				End Select
+			Next
+
+		If Application("CountdownTimerTitle") <> "" Then
+			If CDate(Date & " " & Time) < CDate(Application("CountdownTimerDate")) Then
+				CountdownTimer
+			End If
+		End If
+		%>
+	</div>
+
+	<div class="Version">Version <%=Application("Version")%></div>
+	<div class="CopyRight"><%=Application("Copyright")%></div>
+	</body>
+	</html>
+
+<%End Sub%>
+
+<%Sub SpareMacBooksFlipiPads%>
+
+	<div class="flip Flipable" >
+		<div class="front">
+			<%SpareMacBooksCardFlip%>
+		</div>
+		<div class="back">
+			<%SpareiPadsCardFlip%>
+		</div>
+	</div>
+
+<%End Sub%>
+
+<%Sub BandwidthCard%>
+
+	<div class="Card NormalCard">
+		<div class="CardTitle">24 Hour Internet Usage</div>
+		<a href="<%=Application("LibreNMSServer")%>/graphs/id=<%=Application("BandwidthPort")%>/type=port_bits" target="_blank">
+			<img src="<%=Application("LibreNMSServer")%>/graph.php?id=<%=Application("BandwidthPort")%>&type=port_bits&width=300&height=150&from=-24h">
+		</a>
+	</div>
+
+<%End Sub%>
+
+<%Sub WideBandwidthCard%>
+	<br />
+	<div class="Col3Card NormalCard">
+		<div class="Col3CardTitle">24 Hour Internet Usage</div>
+		<a href="<%=Application("LibreNMSServer")%>/graphs/id=<%=Application("BandwidthPort")%>/type=port_bits" target="_blank">
+			<img src="<%=Application("LibreNMSServer")%>/graph.php?id=<%=Application("BandwidthPort")%>&type=port_bits&width=650&height=150&from=-24h">
+		</a>
+	</div>
+	<br />
+<%End Sub%>
+
+<%Sub SpareiPadsFlipMacBooks%>
+
+	<div class="flip Flipable" >
+		<div class="front">
+			<%SpareiPadsCardFlip%>
+		</div>
+		<div class="back">
+			<%SpareMacBooksCardFlip%>
+		</div>
+	</div>
+
+<%End Sub%>
+
+<%Sub AccessHistory %>
+	<div class="flip Flipable" >
+		<div class="front">
+			<%StudentsWithOutsideAccessCard%>
+		</div>
+		<div class="back">
+			<%StudentsWithInsideAccessCard%>
+		</div>
+	</div>
+<%End Sub%>
+
+<%Sub EventStats %>
+	<div class="flip Flipable" >
+		<div class="front">
+			<%EventTypesCard%>
+		</div>
+		<div class="back">
+			<%EventCategoriesCard%>
+		</div>
+	</div>
+<%End Sub%>
+
+<%Sub WarningCard
+
+	 If intDisabledUsersCount >= 1 Then %>
+			<div Class="SiteErrorCard">
+				<div Class="Center">
+					<a href="users.asp?UserStatus=Disabled&WithDevice=Yes">
+						Devices are Assigned to Disabled Users
+					</a>
+				</div>
+			</div>
+
+	<%	End If
+
+End Sub%>
+
+<%Sub CountdownTimer %>
+	<div class="Card NormalCard">
+		<div class="CardTitle"><%=Application("CountdownTimerTitle")%></div>
+		<div class="your-clock"></div>
+	</div>
+<%End Sub%>
+
+<%Sub SearchCard%>
+
+	<div Class="Card NormalCard">
+		<form method="POST" action="index.asp">
+		<div class="CardTitle">Quick Search</div>
+		<div>
+			<div Class="CardColumn1">Asset tag: </div>
+			<div Class="CardColumn2">
+				<input class="Card InputWidthSmall" type="text" name="Tag" value="<%=intTag%>" />
+			</div>
+		</div>
+		<div>
+			<div Class="CardColumn1">Event number: </div>
+			<div Class="CardColumn2">
+				<input class="Card InputWidthSmall" type="text" name="EventNumber" value="<%=intEventNumber%>" />
+			</div>
+		</div>
+		<div>
+			<div Class="CardColumn1">First name: </div>
+			<div Class="CardColumn2">
+				<input class="Card InputWidthLarge" type="text" name="FirstName" value="<%=strFirstName%>" id="FirstNames" />
+			</div>
+		</div>
+		<div>
+			<div Class="CardColumn1">Last name: </div>
+			<div Class="CardColumn2">
+				<input class="Card InputWidthLarge" type="text" name="LastName" value="<%=strLastName%>" id="LastNames" />
+			</div>
+		</div>
+
+		<div class="Button"><input type="submit" value="Search" name="Submit" /></div>
+
+	<%	If strUserMessage <> "" Or strDeviceMessage <> "" Then %>
+		<div>
+			<div Class="Error">No Results</div>
+		</div>
+	<%	End If %>
+
+		<input type="hidden" value="" name="BOCESTag" />
+		</form>
+	</div>
+
+<%End Sub%>
+
+<%Sub StudentsPerGradeCard%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">
+			Students Per Grade
+			<div class="Button"><image src="../images/info.png" width="20" height="20" title="<%=strStudentsPerGradeInfo%>"  />&nbsp;</div>
+		</div>
+		<div id="studentsPerGrade"></div>
+	</div>
+<%End Sub%>
+
+<%Sub StudentsWithOutsideAccessCard%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">
+			Outside Access Over the Past Week
+			<div class="Button"><image src="../images/info.png" width="20" height="20" title="<%=strStudentsHomeInternetInfo%>"  />&nbsp;</div>
+		</div>
+		<div id="studentsWithAccess" Class="Chart"></div>
+		<div class="ChartBottomBar">
+			<div class="ChartBackLink">
+				<a href="" class="FlipCard"><image src="../images/swap.png" width="20" height="20" title="View Inside Access"/></a>
+			</div>
+		</div>
+	</div>
+<%End Sub%>
+
+<%Sub StudentsWithInsideAccessCard%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">
+			Inside Access Over the Past Week
+		</div>
+		<div id="studentsWithInsideAccess" Class="Chart"></div>
+		<div class="ChartBottomBar">
+			<div class="ChartBackLink">
+				<a href="" class="FlipCard"><image src="../images/swap.png" width="20" height="20" title="View Outside Access"/></a>
+			</div>
+		</div>
+	</div>
+<%End Sub%>
+
+<%Sub OpenEventsCard%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">
+			Open Events
+			<div class="Button">
+				 <a href="users.asp?Owes=True&UserStatus=All&Display=Owed"><image src="../images/info.png" width="20" height="20" title="<%=strOpenEventsInfo%>"  /></a>&nbsp;</div>
+			</div>
+		<div id="openEvents"></div>
+	</div>
+<%End Sub%>
+
+<%Sub SpareMacBooksCard%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">Spare MacBooks</div>
+		<div id="spareMacBooks" Class="Chart"></div>
+	</div>
+<%End Sub%>
+
+<%Sub SpareMacBooksCardFlip%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">Spare MacBooks</div>
+		<div id="spareMacBooks" Class="Chart"></div>
+		<div class="ChartBottomBar" >
+			<div class="ChartBackLink">
+				<a href="" class="FlipCard"><image src="../images/swap.png" width="20" height="20" title="View Spare iPads"/></a>
+			</div>
+		</div>
+	</div>
+<%End Sub%>
+
+<%Sub SpareiPadsCard%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">Spare iPads</div>
+		<div id="spareiPads" Class="Chart"></div>
+	</div>
+<%End Sub%>
+
+<%Sub SpareiPadsCardFlip%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">Spare iPads</div>
+		<div id="spareiPads" Class="Chart"></div>
+		<div class="ChartBottomBar">
+			<div class="ChartBackLink">
+				<a href="" class="FlipCard"><image src="../images/swap.png" width="20" height="20" title="View Spare MacBooks"/></a>
+			</div>
+		</div>
+	</div>
+<%End Sub%>
+
+<%Sub SpareChromebooksCard%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">Spare Chromebooks</div>
+		<div id="spareChromebooks" Class="Chart"></div>
+	</div>
+<%End Sub%>
+
+<%Sub EventCategoriesCard%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">Event Categories </div>
+		<div id="eventCategories" Class="Chart"></div>
+		<div class="ChartBottomBar">
+			<div class="ChartBackLink">
+				<a href="" class="FlipCard"><image src="../images/swap.png" width="20" height="20" title="View Types"/></a>
+				<a href="eventstats.asp?LookUp=Categories"><image src="../images/dig.png" width="20" height="20" title="Dig Deeper"/></a>
+			</div>
+		</div>
+	</div>
+<%End Sub%>
+
+<%Sub EventTypesCard%>
+	<div class="Card NormalCard">
+		<div class="CardTitle">Event Types </div>
+		<div id="eventTypes" Class="Chart"></div>
+		<div class="ChartBottomBar">
+			<div class="ChartBackLink">
+				<a href="" class="FlipCard"><image src="../images/swap.png" width="20" height="20" title="View Categories"/></a>
+				<a href="eventstats.asp?LookUp=Types"><image src="../images/dig.png" width="20" height="20" title="Dig Deeper"/></a>
+			</div>
+		</div>
+	</div>
+<%End Sub%>
+
+<%Sub StudentsPerGradeJavaScript
+
+	Dim strSQL, objStudentsPerGrade, strStudentsPerGradeData, intHighestValue, intTotalStudentCount
+	Dim intHSCount, intESCount, intMSCount, intHSMSCount, intNewComputerCount, intGrade, intSixToElevenCount
+	Dim intSchuylervilleES, intSchuylervilleMS, intSchuylervilleHS, intSchuylervilleCount
+
+
+	strSQL = "SELECT ClassOf, Count(People.ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM People" & vbCRLF
+	strSQL = strSQL & "WHERE Active=True AND ClassOf > 2000" & vbCRLF
+	strSQL = strSQL & "GROUP BY ClassOf" & vbCRLF
+	strSQL = strSQL & "ORDER BY ClassOf DESC"
+	Set objStudentsPerGrade = Application("Connection").Execute(strSQL)
+
+	intHighestValue = 0
+	intHSCount = 0
+	intESCount = 0
+	intMSCount = 0
+	intHSMSCount = 0
+	intSixToElevenCount = 0
+	intTotalStudentCount = 0
+	strStudentsPerGradeData = "['Grade','Students',{ role: 'annotation' },{ role: 'tooltip' }],"
+	If Not objStudentsPerGrade.EOF Then
+		Do Until objStudentsPerGrade.EOF
+			strStudentsPerGradeData = strStudentsPerGradeData & "['" & GetGrade(Replace(objStudentsPerGrade(0),"'","\'")) & "', " & objStudentsPerGrade(1) & _
+				",'" & objStudentsPerGrade(1) & "','" & objStudentsPerGrade(0) & "'],"
+			intTotalStudentCount = intTotalStudentCount + objStudentsPerGrade(1)
+
+			intGrade = GetGrade(objStudentsPerGrade(0))
+
+			If intGrade = "K" Or intGrade = "P" Then
+				intGrade = 0
+			End If
+
+			If intGrade >= 7 Then
+				intHSMSCount = intHSMSCount + objStudentsPerGrade(1)
+			Else
+				intESCount = intESCount + objStudentsPerGrade(1)
+			End If
+
+			If intGrade = 7 Or intGrade = 8 Then
+				intMSCount = intMSCount + objStudentsPerGrade(1)
+			End If
+
+			If intGrade = 4 Or intGrade = 8 Then
+				intNewComputerCount = intNewComputerCount + objStudentsPerGrade(1)
+			End If
+
+			If intGrade >= 9 Then
+				intHSCount = intHSCount + objStudentsPerGrade(1)
+			End If
+
+			If intGrade >=6 And intGrade <=11 Then
+				intSixToElevenCount = intSixToElevenCount + objStudentsPerGrade(1)
+			End If
+
+			If objStudentsPerGrade(1) > intHighestValue Then
+			intHighestValue = objStudentsPerGrade(1)
+		End If
+
+		If intGrade <= 5 Then
+				intSchuylervilleES = intSchuylervilleES + objStudentsPerGrade(1)
+			End If
+
+			If intGrade >=6 And intGrade <=8 Then
+				intSchuylervilleMS = intSchuylervilleMS + objStudentsPerGrade(1)
+			End If
+
+			 If intGrade >= 9 Then
+				intSchuylervilleHS = intSchuylervilleHS + objStudentsPerGrade(1)
+			End If
+
+			If intGrade = 2 Or intGrade = 5 Then
+				intSchuylervilleCount = intSchuylervilleCount + objStudentsPerGrade(1)
+			End If
+
+			objStudentsPerGrade.MoveNext
+		Loop
+		objStudentsPerGrade.MoveFirst
+	End If
+	strStudentsPerGradeData = Left(strStudentsPerGradeData,Len(strStudentsPerGradeData) - 1)
+
+	Select Case Application("SiteName")
+
+		Case "Lake George Inventory", "Lake George Inventory - Dev", "Inventory Demo"
+
+			strStudentsPerGradeInfo = "Elementary: " & intESCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Jr.-Sr. High: " & intHSMSCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "-----------------------" & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Elementary: " & intESCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Junior High: " & intMSCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Senior High: " & intHSCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "-----------------------" & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "4th and 8th: " & intNewComputerCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "5th - 11th: " & intSixToElevenCount
+
+		Case "Schuylerville Inventory"
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Elementary: " & intSchuylervilleES & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Middle: " & intSchuylervilleMS & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "High School: " & intSchuylervilleHS & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "-----------------------" & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "2nd and 5th: " & intSchuylervilleCount
+
+		Case Else
+
+			strStudentsPerGradeInfo = ""
+
+	End Select
+	%>
+
+	google.setOnLoadCallback(drawStudentPerGrade);
+
+	function drawStudentPerGrade() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strStudentsPerGradeData%>
+		]);
+
+		var options = {
+			title: 'Total = <%=intTotalStudentCount%>',
+			bar: {groupWidth: "90%"},
+			chartArea:{width:'90%', height:'85%'},
+			legend:{position: 'none'},
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {title: '', minValue: 0},
+			vAxis: {viewWindow: {max : <%=intHighestValue%>},minValue: 0}
+		};
+
+		var chart = new google.visualization.ColumnChart(document.getElementById('studentsPerGrade'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			window.open('users.asp?Role=' + getGraduationYear(data.getValue(chart.getSelection()[0].row, 0)) + '&View=Table','_self');
+		}
+
+		function getGraduationYear(x) {
+
+			if (x == 'K') {
+				x = 0;
+			}
+
+			if (x == 'P') {
+				x = -1;
+			}
+
+			var d = new Date();
+			var currentYear = d.getFullYear()
+			var currentMonth = d.getMonth()
+			currentMonth = currentMonth + 1;
+
+			if (currentMonth>=7 && currentMonth<=12) {
+				currentYear = currentYear + 1;
+			}
+			return currentYear + (12 - x)
+		}
+	}
+
+<%End Sub %>
+
+<%Sub StudentsPerGradeWithMissingJavaScript
+
+	Dim strSQL, objStudentsPerGrade, strStudentsPerGradeData, intHighestValue, intTotalStudentCount
+	Dim intHSCount, intESCount, intMSCount, intHSMSCount, intNewComputerCount, intGrade, bolShowTotalCount
+	Dim objStudentsWithoutDevices, objStudentsWithDevices, intStudentsWithDevices, intStudentsWithoutDevices
+	Dim intTotalWithDevices, intTotalWithoutDevices, intAssignedPercent, intSixToElevenCount
+	Dim strToolTip, intSchuylervilleES, intSchuylervilleMS, intSchuylervilleHS, intSchuylervilleCount
+    Dim strStudentsWithDevices, strStudentsWithoutDevices
+
+	strSQL = "SELECT ClassOf, Count(People.ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM People" & vbCRLF
+	strSQL = strSQL & "WHERE Active=True AND ClassOf > 2000" & vbCRLF
+	strSQL = strSQL & "GROUP BY ClassOf" & vbCRLF
+	strSQL = strSQL & "ORDER BY ClassOf DESC"
+	Set objStudentsPerGrade = Application("Connection").Execute(strSQL)
+
+	strSQL = "SELECT ClassOf, Count(People.ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM People" & vbCRLF
+	strSQL = strSQL & "WHERE Active=True AND ClassOf > 2000 AND HasDevice=False" & vbCRLF
+	strSQL = strSQL & "GROUP BY ClassOf" & vbCRLF
+	strSQL = strSQL & "ORDER BY ClassOf DESC"
+	Set objStudentsWithoutDevices = Application("Connection").Execute(strSQL)
+
+	strSQL = "SELECT ClassOf, Count(People.ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM People" & vbCRLF
+	strSQL = strSQL & "WHERE Active=True AND ClassOf > 2000 AND HasDevice=True" & vbCRLF
+	strSQL = strSQL & "GROUP BY ClassOf" & vbCRLF
+	strSQL = strSQL & "ORDER BY ClassOf DESC"
+	Set objStudentsWithDevices = Application("Connection").Execute(strSQL)
+
+	intHighestValue = 0
+	intHSCount = 0
+	intESCount = 0
+	intMSCount = 0
+	intHSMSCount = 0
+	intTotalStudentCount = 0
+	intTotalWithDevices = 0
+	intTotalWithoutDevices = 0
+	intSchuylervilleES = 0
+	intSchuylervilleMS = 0
+	intSchuylervilleHS = 0
+	intSchuylervilleCount = 0
+	strStudentsPerGradeData = "['Grade','Students',{ role: 'annotation' },{ role: 'tooltip' },'Without',{ role: 'annotation' },{ role: 'tooltip' }],"
+	If Not objStudentsPerGrade.EOF Then
+		Do Until objStudentsPerGrade.EOF
+
+			intStudentsWithDevices = 0
+			intStudentsWithoutDevices = 0
+			bolShowTotalCount = False
+
+			If Not objStudentsWithoutDevices.EOF Then
+				Do Until objStudentsWithoutDevices.EOF
+					If objStudentsWithoutDevices(0) = objStudentsPerGrade(0) Then
+						intStudentsWithoutDevices = objStudentsWithoutDevices(1)
+						intTotalWithoutDevices = intTotalWithoutDevices + intStudentsWithoutDevices
+					End If
+					objStudentsWithoutDevices.MoveNext
+				Loop
+				objStudentsWithoutDevices.MoveFirst
+			End If
+
+			If Not objStudentsWithDevices.EOF Then
+				Do Until objStudentsWithDevices.EOF
+					If objStudentsWithDevices(0) = objStudentsPerGrade(0) Then
+						intStudentsWithDevices = objStudentsWithDevices(1)
+						intTotalWithDevices = intTotalWithDevices + intStudentsWithDevices
+					End If
+					objStudentsWithDevices.MoveNext
+				Loop
+				objStudentsWithDevices.MoveFirst
+			End If
+
+			If intStudentsWithDevices = 0 Then
+				strStudentsWithDevices = ""
+				bolShowTotalCount = True
+			Else
+				strStudentsWithDevices = intStudentsWithDevices
+			End If
+			If intStudentsWithoutDevices = 0 Then
+				strStudentsWithoutDevices = ""
+				bolShowTotalCount = True
+			Else
+				strStudentsWithoutDevices = intStudentsWithoutDevices
+			End If
+
+			If bolShowTotalCount Then
+				strToolTip = objStudentsPerGrade(0)
+			Else
+				strToolTip = objStudentsPerGrade(0) & " - " & objStudentsPerGrade(1)
+			End If
+
+			strStudentsPerGradeData = strStudentsPerGradeData & "['" & GetGrade(Replace(objStudentsPerGrade(0),"'","\'")) & _
+			"', " & intStudentsWithDevices & _
+			",'" & strStudentsWithDevices & _
+			"','" & strToolTip & _
+			"'," & intStudentsWithoutDevices & _
+			",'" & strStudentsWithoutDevices & _
+			"','" & strToolTip & "'],"
+			intTotalStudentCount = intTotalStudentCount + objStudentsPerGrade(1)
+
+			intGrade = GetGrade(objStudentsPerGrade(0))
+
+			If intGrade = "K" Or intGrade = "P" Then
+				intGrade = 0
+			End If
+
+			If intGrade >= 7 Then
+				intHSMSCount = intHSMSCount + objStudentsPerGrade(1)
+			Else
+				intESCount = intESCount + objStudentsPerGrade(1)
+			End If
+
+			If intGrade = 7 Or intGrade = 8 Then
+				intMSCount = intMSCount + objStudentsPerGrade(1)
+			End If
+
+			If intGrade = 4 Or intGrade = 8 Then
+				intNewComputerCount = intNewComputerCount + objStudentsPerGrade(1)
+			End If
+
+			If intGrade >= 9 Then
+				intHSCount = intHSCount + objStudentsPerGrade(1)
+			End If
+
+			If intGrade >=6 And intGrade <=11 Then
+				intSixToElevenCount = intSixToElevenCount + objStudentsPerGrade(1)
+			End If
+
+			If objStudentsPerGrade(1) > intHighestValue Then
+				intHighestValue = objStudentsPerGrade(1)
+			End If
+
+			If intGrade <= 5 Then
+				intSchuylervilleES = intSchuylervilleES + objStudentsPerGrade(1)
+			End If
+
+			If intGrade >=6 And intGrade <=8 Then
+				intSchuylervilleMS = intSchuylervilleMS + objStudentsPerGrade(1)
+			End If
+
+			 If intGrade >= 9 Then
+				intSchuylervilleHS = intSchuylervilleHS + objStudentsPerGrade(1)
+			End If
+
+			If intGrade = 2 Or intGrade = 5 Then
+				intSchuylervilleCount = intSchuylervilleCount + objStudentsPerGrade(1)
+			End If
+
+			objStudentsPerGrade.MoveNext
+		Loop
+		objStudentsPerGrade.MoveFirst
+	End If
+
+	If intTotalStudentCount <> 0 Then
+		intAssignedPercent = Round((intTotalWithDevices/intTotalStudentCount)*100,2)
+	Else
+		intAssignedPercent = 0
+	End If
+
+	strStudentsPerGradeData = Left(strStudentsPerGradeData,Len(strStudentsPerGradeData) - 1)
+
+	Select Case Application("SiteName")
+
+		Case "Lake George Inventory", "Lake George Inventory - Dev", "Inventory Demo"
+
+			strStudentsPerGradeInfo = "Elementary: " & intESCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Jr.-Sr. High: " & intHSMSCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "-----------------------" & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Elementary: " & intESCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Junior High: " & intMSCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Senior High: " & intHSCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "-----------------------" & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "4th and 8th: " & intNewComputerCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "5th - 11th: " & intSixToElevenCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "-----------------------" & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Assigned: " & intAssignedPercent & "%"
+
+		Case "Schuylerville Inventory"
+
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Elementary: " & intSchuylervilleES & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Middle: " & intSchuylervilleMS & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "High School: " & intSchuylervilleHS & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "-----------------------" & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "2nd and 5th: " & intSchuylervilleCount & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "-----------------------" & " &#013 "
+			strStudentsPerGradeInfo = strStudentsPerGradeInfo & "Assigned: " & intAssignedPercent & "%"
+
+		Case Else
+
+			strStudentsPerGradeInfo = ""
+
+	End Select
+	%>
+
+	google.setOnLoadCallback(drawStudentPerGrade);
+
+	function drawStudentPerGrade() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strStudentsPerGradeData%>
+		]);
+
+		var options = {
+			title: 'Total = <%=intTotalStudentCount%>',
+			bar: {groupWidth: "90%"},
+			chartArea:{width:'90%', height:'85%'},
+			legend:{position: 'none'},
+			isStacked: true,
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {title: '', minValue: 0},
+			vAxis: {viewWindow: {max : <%=intHighestValue%>}, minValue: 0}
+		};
+
+		var chart = new google.visualization.ColumnChart(document.getElementById('studentsPerGrade'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			window.open('users.asp?Role=' + getGraduationYear(data.getValue(chart.getSelection()[0].row, 0)) + '&View=Table','_self');
+		}
+
+		function getGraduationYear(x) {
+
+			if (x == 'K') {
+				x = 0;
+			}
+
+			var d = new Date();
+			var currentYear = d.getFullYear()
+			var currentMonth = d.getMonth()
+			currentMonth = currentMonth + 1;
+
+			if (currentMonth>=7 && currentMonth<=12) {
+				currentYear = currentYear + 1;
+			}
+			return currentYear + (12 - x)
+		}
+	}
+
+<%End Sub %>
+
+<%Sub StudentsPerGradeWithOutsideAccess
+
+	Dim strSQL, objStudentsPerGrade, strStudentsPerGradeData, intHighestValue, intTotalStudentCount
+	Dim intHSCount, intESCount, intMSCount, intHSMSCount, intNewComputerCount, intGrade, bolShowTotalCount
+	Dim objStudentsWithoutDevices, objStudentsWithAccess, intStudentsWithAccess, intStudentsWithoutAccess
+	Dim intTotalWithAccess, intTotalWithoutAccess, intTotalPercentWithAccess, strHSStudents
+	Dim strToolTip, objInternetTypes, intUnknownInternetCount, strStudentsWithAccess, strStudentsWithoutAccess
+
+	strHSStudents = GetGraduationYear(5)
+
+	strSQL = "SELECT ClassOf, Count(People.ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM People" & vbCRLF
+	strSQL = strSQL & "WHERE Active=True AND (HomeRoom Is Not Null And HomeRoom  <>'') And ClassOf <= "  & strHSStudents & vbCRLF
+	strSQL = strSQL & "GROUP BY ClassOf" & vbCRLF
+	strSQL = strSQL & "ORDER BY ClassOf DESC"
+	Set objStudentsPerGrade = Application("Connection").Execute(strSQL)
+
+	strSQL = "SELECT ClassOf, Count(People.ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM People" & vbCRLF
+	strSQL = strSQL & "WHERE Active=True AND (HomeRoom Is Not Null And HomeRoom  <>'') And ClassOf <= " & strHSStudents & " AND LastExternalCheckIn>=Date()-7" & vbCRLF
+	strSQL = strSQL & "GROUP BY ClassOf" & vbCRLF
+	strSQL = strSQL & "ORDER BY ClassOf DESC"
+	Set objStudentsWithAccess = Application("Connection").Execute(strSQL)
+
+	intHighestValue = 0
+	intHSCount = 0
+	intESCount = 0
+	intMSCount = 0
+	intHSMSCount = 0
+	intTotalStudentCount = 0
+	intTotalWithAccess = 0
+	intTotalWithoutAccess = 0
+	strStudentsPerGradeData = "['Grade','Students',{ role: 'annotation' },{ role: 'tooltip' },'With Access',{ role: 'annotation' },{ role: 'tooltip' }],"
+	If Not objStudentsPerGrade.EOF Then
+		Do Until objStudentsPerGrade.EOF
+
+			intStudentsWithAccess = 0
+			intStudentsWithoutAccess = 0
+			bolShowTotalCount = False
+
+			If Not objStudentsWithAccess.EOF Then
+				Do Until objStudentsWithAccess.EOF
+					If objStudentsWithAccess(0) = objStudentsPerGrade(0) Then
+						intStudentsWithAccess = objStudentsWithAccess(1)
+						intTotalWithAccess = intTotalWithAccess + intStudentsWithAccess
+					End If
+					objStudentsWithAccess.MoveNext
+				Loop
+				objStudentsWithAccess.MoveFirst
+			End If
+
+			intStudentsWithoutAccess = objStudentsPerGrade(1) - intStudentsWithAccess
+
+			If intStudentsWithAccess = 0 Then
+				intStudentsWithAccess = 0
+				strStudentsWithAccess = ""
+				bolShowTotalCount = True
+			Else
+				strStudentsWithAccess = intStudentsWithAccess
+			End If
+			If intStudentsWithoutAccess = 0 Then
+				intStudentsWithoutAccess = 0
+				strStudentsWithoutAccess = ""
+				bolShowTotalCount = True
+			Else
+				strStudentsWithoutAccess = intStudentsWithoutAccess
+			End If
+
+			If bolShowTotalCount Then
+				strToolTip = objStudentsPerGrade(1)
+			Else
+				strToolTip = objStudentsPerGrade(1)' & " - " & objStudentsPerGrade(1)
+			End If
+
+			strStudentsPerGradeData = strStudentsPerGradeData & "['" & GetGrade(Replace(objStudentsPerGrade(0),"'","\'")) & _
+			"', " & intStudentsWithAccess & _
+			",'" & strStudentsWithAccess & _
+			"','Have Accessed'" & _
+			"," & intStudentsWithoutAccess & _
+			",'" & strStudentsWithoutAccess & _
+			"','Have Not Accessed'],"
+			intTotalStudentCount = intTotalStudentCount + objStudentsPerGrade(1)
+
+			If objStudentsPerGrade(1) > intHighestValue Then
+			intHighestValue = objStudentsPerGrade(1)
+		 End If
+
+			objStudentsPerGrade.MoveNext
+		Loop
+		objStudentsPerGrade.MoveFirst
+	End If
+
+	If intTotalStudentCount <> 0 Then
+		intTotalPercentWithAccess = Round((intTotalWithAccess/intTotalStudentCount)*100,2)
+	Else
+		intTotalPercentWithAccess = 0
+	End If 
+	
+	'Get the list of Internet types    
+	strSQL = "SELECT InternetAccess, Count(People.ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM People" & vbCRLF
+	strSQL = strSQL & "WHERE Active=True AND (InternetAccess Is Not Null AND Not InternetAccess='')" & vbCRLF
+	strSQL = strSQL & "GROUP BY InternetAccess" & vbCRLF
+	strSQL = strSQL & "ORDER BY Count(ID) DESC;"
+	Set objInternetTypes = Application("Connection").Execute(strSQL)
+
+	intUnknownInternetCount = intTotalStudentCount
+	Do Until objInternetTypes.EOF
+		strStudentsHomeInternetInfo = strStudentsHomeInternetInfo & objInternetTypes(0) & ": " & objInternetTypes(1) & " - " & Round((objInternetTypes(1)/intTotalStudentCount)*100,2) & "% &#013 "
+		intUnknownInternetCount = intUnknownInternetCount - objInternetTypes(1)
+		objInternetTypes.MoveNext
+	Loop
+	strStudentsHomeInternetInfo = strStudentsHomeInternetInfo & "Unknown: " & intUnknownInternetCount & " - " & Round((intUnknownInternetCount/intTotalStudentCount)*100,2) & "%"
+	%>
+
+	google.setOnLoadCallback(drawStudentWithAccess);
+
+	function drawStudentWithAccess() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strStudentsPerGradeData%>
+		]);
+
+		var options = {
+			title: 'Total = <%=intTotalPercentWithAccess%>%',
+			bar: {groupWidth: "90%"},
+			chartArea:{left:40, width:'90%', height:'85%'},
+			legend:{position: 'none'},
+			isStacked: true,
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {title: '', minValue: 0},
+			vAxis: {viewWindow: {max : <%=intHighestValue%>}, minValue: 0}
+		};
+
+		var chart = new google.visualization.ColumnChart(document.getElementById('studentsWithAccess'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			window.open('users.asp?Role=' + getGraduationYear(data.getValue(chart.getSelection()[0].row, 0)) + '&View=Table&Display=CheckIn&Internal=False','_self');
+		}
+
+		function getGraduationYear(x) {
+
+			if (x == 'K') {
+				x = 0;
+			}
+
+			var d = new Date();
+			var currentYear = d.getFullYear()
+			var currentMonth = d.getMonth()
+			currentMonth = currentMonth + 1;
+
+			if (currentMonth>=7 && currentMonth<=12) {
+				currentYear = currentYear + 1;
+			}
+			return currentYear + (12 - x)
+		}
+	}
+
+<%End Sub %>
+
+<%Sub StudentsPerGradeWithInsideAccess
+
+	Dim strSQL, objStudentsPerGrade, strStudentsPerGradeData, intHighestValue, intTotalStudentCount
+	Dim intHSCount, intESCount, intMSCount, intHSMSCount, intNewComputerCount, intGrade, bolShowTotalCount
+	Dim objStudentsWithoutDevices, objStudentsWithAccess, intStudentsWithAccess, intStudentsWithoutAccess
+	Dim intTotalWithAccess, intTotalWithoutAccess, intTotalPercentWithAccess, strHSStudents
+	Dim strToolTip, strStudentsWithAccess, strStudentsWithoutAccess
+
+	strHSStudents = GetGraduationYear(5)
+
+	strSQL = "SELECT ClassOf, Count(People.ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM People" & vbCRLF
+	strSQL = strSQL & "WHERE Active=True AND (HomeRoom Is Not Null And HomeRoom  <>'') And ClassOf <= "  & strHSStudents & vbCRLF
+	strSQL = strSQL & "GROUP BY ClassOf" & vbCRLF
+	strSQL = strSQL & "ORDER BY ClassOf DESC"
+	Set objStudentsPerGrade = Application("Connection").Execute(strSQL)
+
+	strSQL = "SELECT ClassOf, Count(People.ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM People" & vbCRLF
+	strSQL = strSQL & "WHERE Active=True AND (HomeRoom Is Not Null And HomeRoom  <>'') And ClassOf <= " & strHSStudents & " AND LastInternalCheckIn>=Date()-7" & vbCRLF
+	strSQL = strSQL & "GROUP BY ClassOf" & vbCRLF
+	strSQL = strSQL & "ORDER BY ClassOf DESC"
+	Set objStudentsWithAccess = Application("Connection").Execute(strSQL)
+
+	intHighestValue = 0
+	intHSCount = 0
+	intESCount = 0
+	intMSCount = 0
+	intHSMSCount = 0
+	intTotalStudentCount = 0
+	intTotalWithAccess = 0
+	intTotalWithoutAccess = 0
+	strStudentsPerGradeData = "['Grade','Students',{ role: 'annotation' },{ role: 'tooltip' },'With Access',{ role: 'annotation' },{ role: 'tooltip' }],"
+	If Not objStudentsPerGrade.EOF Then
+		Do Until objStudentsPerGrade.EOF
+
+			intStudentsWithAccess = 0
+			intStudentsWithoutAccess = 0
+			bolShowTotalCount = False
+
+			If Not objStudentsWithAccess.EOF Then
+				Do Until objStudentsWithAccess.EOF
+					If objStudentsWithAccess(0) = objStudentsPerGrade(0) Then
+						intStudentsWithAccess = objStudentsWithAccess(1)
+						intTotalWithAccess = intTotalWithAccess + intStudentsWithAccess
+					End If
+					objStudentsWithAccess.MoveNext
+				Loop
+				objStudentsWithAccess.MoveFirst
+			End If
+
+			intStudentsWithoutAccess = objStudentsPerGrade(1) - intStudentsWithAccess
+
+			If intStudentsWithAccess = 0 Then
+				intStudentsWithAccess = 0
+				strStudentsWithAccess = ""
+				bolShowTotalCount = True
+			Else
+				strStudentsWithAccess = intStudentsWithAccess
+			End If
+			If intStudentsWithoutAccess = 0 Then
+				intStudentsWithoutAccess = 0
+				strStudentsWithoutAccess = ""
+				bolShowTotalCount = True
+			Else
+				strStudentsWithoutAccess = intStudentsWithoutAccess
+			End If
+
+			If bolShowTotalCount Then
+				strToolTip = objStudentsPerGrade(1)
+			Else
+				strToolTip = objStudentsPerGrade(1)' & " - " & objStudentsPerGrade(1)
+			End If
+
+			strStudentsPerGradeData = strStudentsPerGradeData & "['" & GetGrade(Replace(objStudentsPerGrade(0),"'","\'")) & _
+			"', " & intStudentsWithAccess & _
+			",'" & strStudentsWithAccess & _
+			"','Have Accessed'" & _
+			"," & intStudentsWithoutAccess & _
+			",'" & strStudentsWithoutAccess & _
+			"','Have Not Accessed'],"
+			intTotalStudentCount = intTotalStudentCount + objStudentsPerGrade(1)
+
+			If objStudentsPerGrade(1) > intHighestValue Then
+			intHighestValue = objStudentsPerGrade(1)
+		End If
+
+
+			objStudentsPerGrade.MoveNext
+		Loop
+		objStudentsPerGrade.MoveFirst
+	End If
+
+	If intTotalStudentCount <> 0 Then
+		intTotalPercentWithAccess = Round((intTotalWithAccess/intTotalStudentCount)*100,2)
+	Else
+		intTotalPercentWithAccess = 0
+	End If %>
+
+	google.setOnLoadCallback(drawStudentWithInsideAccess);
+
+	function drawStudentWithInsideAccess() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strStudentsPerGradeData%>
+		]);
+
+		var options = {
+			title: 'Total = <%=intTotalPercentWithAccess%>%',
+			bar: {groupWidth: "90%"},
+			chartArea:{left:40, width:'90%', height:'85%'},
+			legend:{position: 'none'},
+			isStacked: true,
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {title: '', minValue: 0},
+			vAxis: {viewWindow: {max : <%=intHighestValue%>}, minValue: 0}
+		};
+
+		var chart = new google.visualization.ColumnChart(document.getElementById('studentsWithInsideAccess'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			window.open('users.asp?Role=' + getGraduationYear(data.getValue(chart.getSelection()[0].row, 0)) + '&View=Table&Display=CheckIn&Internal=True','_self');
+		}
+
+		function getGraduationYear(x) {
+
+			if (x == 'K') {
+				x = 0;
+			}
+
+			var d = new Date();
+			var currentYear = d.getFullYear()
+			var currentMonth = d.getMonth()
+			currentMonth = currentMonth + 1;
+
+			if (currentMonth>=7 && currentMonth<=12) {
+				currentYear = currentYear + 1;
+			}
+			return currentYear + (12 - x)
+		}
+	}
+
+<%End Sub %>
+
+<%Sub OpenEventsJavaScript
+
+	Dim strSQL, objOpenEventCounts, strOpenEventsData, intHighestValue, objOwedMoney
+
+	strSQL = "SELECT Type, Count(ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM Events" & vbCRLF
+	strSQL = strSQL & "WHERE Deleted=False AND Resolved=False" & vbCRLF
+	strSQL = strSQL & "GROUP BY Type"
+	Set objOpenEventCounts = Application("Connection").Execute(strSQL)
+
+	strSQL = "SELECT Sum(Price) AS SumOfPrice FROM Owed GROUP BY Active HAVING Active=True"
+	Set objOwedMoney = Application("Connection").Execute(strSQL)
+
+	If Not objOwedMoney.EOF Then
+		strOpenEventsInfo = "$" & objOwedMoney(0) & " Currently Owed"
+	Else
+		strOpenEventsInfo = "No Money Owed"
+	End If
+
+	strOpenEventsData = "['Type','Events',{ role: 'annotation' } ],"
+	If Not objOpenEventCounts.EOF Then
+		Do Until objOpenEventCounts.EOF
+
+			If objOpenEventCounts(1) > intHighestValue Then
+				intHighestValue = objOpenEventCounts(1)
+		 	End If
+
+			strOpenEventsData = strOpenEventsData & "['" & Replace(objOpenEventCounts(0),"'","\'") & "', " & objOpenEventCounts(1) & ",'" & objOpenEventCounts(1) & "'],"
+			objOpenEventCounts.MoveNext
+		Loop
+		objOpenEventCounts.MoveFirst
+	End If
+	strOpenEventsData = Left(strOpenEventsData,Len(strOpenEventsData) - 1)%>
+
+	google.setOnLoadCallback(drawOpenEvents);
+
+	function drawOpenEvents() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strOpenEventsData%>
+		]);
+
+		var options = {
+			titlePosition: 'none',
+			chartArea:{left:85, width:'90%', height:'85%'},
+			legend: 'none',
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {viewWindow: {max : <%=intHighestValue*1.1%>},minValue: 0},
+			vAxis: {title: ''}
+		};
+
+		var chart = new google.visualization.BarChart(document.getElementById('openEvents'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			window.open('events.asp?EventType=' + data.getValue(chart.getSelection()[0].row, 0) + '&Complete=No&View=Table','_self');
+		}
+
+	}
+
+<%End Sub %>
+
+<%Sub SpareMacBooksJavaScript
+
+	Dim strSQL, objSpareDevices, strSpareDevicesData, intDeviceYear, strDeviceName, strDeviceSite, intYears, objOldestDevice, datOldestDevice
+	Dim intIndex, objSpares, intHighestValue, strModel, objLoanedSpares, intAvailableSpares, intLoanedSpares, objAvailableSpares
+	Dim strAvailableSparesLabel, strLoanedSpareLabel, objReplacements, intReplacements, intReplacementLabel
+
+	'Get the oldest device from the inventory
+	strSQL = "SELECT DatePurchased FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+	strSQL = strSQL & "WHERE DatePurchased Is Not Null AND Active=True AND Tag='Spare' AND (Model Like '%MacBook%' Or Model Like '%iPad%') AND Assigned=False ORDER BY DatePurchased"
+
+	Set objOldestDevice = Application("Connection").Execute(strSQL)
+	If Not objOldestDevice.EOF Then
+		datOldestDevice = objOldestDevice(0)
+		intYears = DatePart("yyyy",Date) - DatePart("yyyy",datOldestDevice)
+	End If
+
+	strSpareDevicesData = "['Device','Available',{ role: 'annotation' },'Loaned Out',{ role: 'annotation' },'Issued as Replacements',{ role: 'annotation' }],"
+	intHighestValue = 0
+
+	For intIndex = 1 to intYears
+
+		'Get the number of spares
+		strSQL = "SELECT Site, Model, Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+		strSQL = strSQL & "WHERE Tag='Spare' AND Active=True AND (Model Like '%MacBook%') AND ("
+		strSQL = strSQL & "DatePurchased>=#" & DateAdd("yyyy",intIndex * -1,Date) & "# AND "
+		strSQL = strSQL & "DatePurchased<=#" & DateAdd("yyyy",(intIndex -1) * -1,Date) & "#) "
+		strSQL = strSQL & "GROUP BY Site, Model"
+		Set objSpares = Application("Connection").Execute(strSQL)
+
+		Do Until objSpares.EOF
+
+			'Get the number of available spares
+			strSQL = "SELECT Site, Model, Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+			strSQL = strSQL & "WHERE Tag='Spare' AND Active=True AND (Model Like '%MacBook%') AND Site='" & objSpares(0) & "' AND Assigned=False AND ("
+			strSQL = strSQL & "DatePurchased>=#" & DateAdd("yyyy",intIndex * -1,Date) & "# AND "
+			strSQL = strSQL & "DatePurchased<=#" & DateAdd("yyyy",(intIndex -1) * -1,Date) & "#) "
+			strSQL = strSQL & "GROUP BY Site, Model"
+			Set objAvailableSpares = Application("Connection").Execute(strSQL)
+
+			If objAvailableSpares.EOF Then
+				intAvailableSpares = 0
+			Else
+				intAvailableSpares = objAvailableSpares(2)
+			End If
+
+			'Get the number of loaned spares
+			strSQL = "SELECT Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+			strSQL = strSQL & "WHERE Tag='Spare' AND Active=True AND Model='" & objSpares(1) & "' AND Assigned=True AND ("
+			strSQL = strSQL & "DatePurchased>=#" & DateAdd("yyyy",intIndex * -1,Date) & "# AND "
+			strSQL = strSQL & "DatePurchased<=#" & DateAdd("yyyy",(intIndex -1) * -1,Date) & "#) AND "
+			strSQL = strSQL & "Site='" & objSpares(0) & "'"
+			Set objLoanedSpares = Application("Connection").Execute(strSQL)
+
+			'Get the number of devices issued as replacement
+			strSQL = "SELECT Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+			strSQL = strSQL & "WHERE Tag='Replacement' AND Active=True AND Model='" & objSpares(1) & "' AND Assigned=True AND ("
+			strSQL = strSQL & "DatePurchased>=#" & DateAdd("yyyy",intIndex * -1,Date) & "# AND "
+			strSQL = strSQL & "DatePurchased<=#" & DateAdd("yyyy",(intIndex -1) * -1,Date) & "#) AND "
+			strSQL = strSQL & "Site='" & objSpares(0) & "'"
+			Set objReplacements = Application("Connection").Execute(strSQL)
+
+			If Not objLoanedSpares.EOF Then
+				intLoanedSpares = objLoanedSpares(0)
+			Else
+				intLoanedSpares = 0
+			End If
+
+			If Not objReplacements.EOF Then
+				intReplacements = objReplacements(0)
+			Else
+				intReplacements = 0
+			End If
+
+			If intAvailableSpares <= 1 Then
+				strAvailableSparesLabel = ""
+			Else
+				strAvailableSparesLabel = intAvailableSpares
+			End If
+
+			If intReplacements = 0 Then
+				intReplacementLabel = ""
+			ElseIf intReplacements = 1 Then
+				intReplacementLabel = ""
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			Else
+				intReplacementLabel = intReplacements
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If intLoanedSpares <= 1 Then
+				strLoanedSpareLabel = ""
+			Else
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If (intAvailableSpares + intLoanedSpares + intReplacements) > intHighestValue Then
+			intHighestValue = (intAvailableSpares + intLoanedSpares + intReplacements)
+		End If
+
+			Select Case objSpares(1)
+				Case "MacBook Air"
+					strModel = "Air"
+				Case "MacBook Pro"
+					strModel = "Pro"
+				Case Else
+					strModel = objSpares(1)
+			End Select
+
+			Select Case objSpares(0)
+				Case "Elementary"
+					strDeviceSite = "ES"
+				Case "High School"
+					strDeviceSite = "HS"
+				Case Else
+					strDeviceSite  =objSpares(0)
+			End Select
+
+			strSpareDevicesData = strSpareDevicesData & "['" & strModel & " - " & strDeviceSite & " - Yr " & _
+			intIndex & "'," & intAvailableSpares & ",'" & strAvailableSparesLabel & "'," & intLoanedSpares & _
+			",'" & strLoanedSpareLabel & "'," & intReplacements & ",'" & intReplacementLabel & "'],"
+			objSpares.MoveNext
+		Loop
+
+	Next
+	strSpareDevicesData = Left(strSpareDevicesData,Len(strSpareDevicesData) - 1)%>
+
+	google.setOnLoadCallback(drawSpareMacBooks);
+
+	function drawSpareMacBooks() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strSpareDevicesData%>
+		]);
+
+		var options = {
+			titlePosition: 'none',
+			chartArea:{left:75, width:'90%', height:'85%'},
+			legend: 'none',
+			isStacked: true,
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {viewWindow: {max : <%=intHighestValue*1.1%>},minValue: 0},
+			vAxis: {title: ''}
+
+		};
+
+		var chart = new google.visualization.BarChart(document.getElementById('spareMacBooks'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			var dataFromChart = data.getValue(chart.getSelection()[0].row, 0).split('-')
+
+			var deviceModel = dataFromChart[0].trim();
+			var deviceSite = dataFromChart[1].trim();
+			var deviceYear = dataFromChart[2].trim();
+			deviceYear = deviceYear.substr(deviceYear.length - 1);
+
+			//window.alert(data.getValue(chart.getSelection()[0].row, 3));
+
+			switch(deviceSite) {
+				case 'ES':
+					deviceSite = 'Elementary';
+					break;
+				case 'HS':
+					deviceSite = 'High School';
+					break;
+			}
+
+			switch(deviceModel) {
+				case 'Air':
+					deviceModel = 'MacBook Air';
+					break;
+				case 'Pro':
+					deviceModel = 'MacBook Pro';
+					break;
+			}
+
+			window.open('devices.asp?Model=' + deviceModel + '&DeviceSite=' + deviceSite + '&Year=' + deviceYear + '&Tags=Spare&View=Table','_self');
+		}
+
+	}
+
+<%End Sub %>
+
+<%Sub SpareMacBooksByGradeJavaScript
+
+	Dim strSQL, objSpareDevices, strSpareDevicesData, intDeviceYear, strDeviceName, strDeviceSite, intYears, objOldestDevice, datOldestDevice
+	Dim intIndex, objSpares, intHighestValue, strModel, objLoanedSpares, intAvailableSpares, intLoanedSpares, objAvailableSpares
+	Dim strAvailableSparesLabel, strLoanedSpareLabel, objReplacements, intReplacements, intReplacementLabel, strYear
+
+	'Get the current seniors graduating year
+	strYear = GetGraduationYear(12)
+
+	strSpareDevicesData = "['Device','Available',{ role: 'annotation' },'Loaned Out',{ role: 'annotation' },'Issued as Replacements',{ role: 'annotation' }],"
+	intHighestValue = 0
+
+	For intIndex = strYear to strYear + 7
+
+		'Get the number of spares
+		strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+		strSQL = strSQL & "FROM" & vbCRLF
+		strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+		strSQL = strSQL & "FROM(" & vbCRLF
+		strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+		strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+		strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Model Like '%MacBook%')" & vbCRLF
+		strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare')" & vbCRLF
+		strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+		strSQL = strSQL & "WHERE TagCount=2"
+		Set objSpares = Application("Connection").Execute(strSQL)
+
+		If Not IsEmpty(objSpares) Then
+
+			'Get the number of available spares
+			strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+			strSQL = strSQL & "FROM" & vbCRLF
+			strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+			strSQL = strSQL & "FROM(" & vbCRLF
+			strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+			strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+			strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Assigned=False AND Model Like '%MacBook%')" & vbCRLF
+			strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare')" & vbCRLF
+			strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+			strSQL = strSQL & "WHERE TagCount=2"
+			Set objAvailableSpares = Application("Connection").Execute(strSQL)
+
+			'Get the number of loaned spares
+			strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+			strSQL = strSQL & "FROM" & vbCRLF
+			strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+			strSQL = strSQL & "FROM(" & vbCRLF
+			strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+			strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+			strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Assigned=True AND Model Like '%MacBook%')" & vbCRLF
+			strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare')" & vbCRLF
+			strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+			strSQL = strSQL & "WHERE TagCount=2"
+			Set objLoanedSpares = Application("Connection").Execute(strSQL)
+
+			'Get the number of devices issued as replacement
+			strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+			strSQL = strSQL & "FROM" & vbCRLF
+			strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+			strSQL = strSQL & "FROM(" & vbCRLF
+			strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+			strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+			strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Assigned=True AND Model Like '%MacBook%')" & vbCRLF
+			strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare' OR Tags.Tag='Replacement')" & vbCRLF
+			strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+			strSQL = strSQL & "WHERE TagCount=3"
+			Set objReplacements = Application("Connection").Execute(strSQL)
+
+			If objAvailableSpares.EOF Then
+				intAvailableSpares = 0
+			Else
+				intAvailableSpares = objAvailableSpares(0)
+			End If
+
+			If Not objLoanedSpares.EOF Then
+				intLoanedSpares = objLoanedSpares(0)
+			Else
+				intLoanedSpares = 0
+			End If
+
+			If Not objReplacements.EOF Then
+				intReplacements = objReplacements(0)
+			Else
+				intReplacements = 0
+			End If
+
+			If intAvailableSpares <= 1 Then
+				strAvailableSparesLabel = ""
+			Else
+				strAvailableSparesLabel = intAvailableSpares
+			End If
+
+			If intReplacements = 0 Then
+				intReplacementLabel = ""
+			ElseIf intReplacements = 1 Then
+				intReplacementLabel = ""
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			Else
+				intReplacementLabel = intReplacements
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If intLoanedSpares <= 1 Then
+				strLoanedSpareLabel = ""
+			Else
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If (intAvailableSpares + intLoanedSpares + intReplacements) > intHighestValue Then
+			intHighestValue = (intAvailableSpares + intLoanedSpares + intReplacements)
+		End If
+
+			strSpareDevicesData = strSpareDevicesData & "['" & intIndex & "'," & intAvailableSpares & _
+			",'" & strAvailableSparesLabel & "'," & intLoanedSpares & _
+			",'" & strLoanedSpareLabel & "'," & intReplacements & ",'" & intReplacementLabel & "'],"
+
+		End If
+
+	Next
+	strSpareDevicesData = Left(strSpareDevicesData,Len(strSpareDevicesData) - 1)%>
+
+	google.setOnLoadCallback(drawSpareMacBooks);
+
+	function drawSpareMacBooks() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strSpareDevicesData%>
+		]);
+
+		var options = {
+			titlePosition: 'none',
+			chartArea:{left:40, width:'90%', height:'85%'},
+			legend: 'none',
+			isStacked: true,
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {viewWindow: {max : <%=intHighestValue*1.1%>},minValue: 0},
+			vAxis: {title: ''}
+
+		};
+
+		var chart = new google.visualization.BarChart(document.getElementById('spareMacBooks'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			var deviceYear = data.getValue(chart.getSelection()[0].row, 0)
+			window.open('devices.asp?Model=MacBook&Tags=Spare,' + deviceYear + '&View=Table','_self');
+		}
+
+	}
+
+<%End Sub %>
+
+<%Sub SpareiPadJavaScript
+
+	Dim strSQL, objSpareDevices, strSpareDevicesData, intDeviceYear, strDeviceName, strDeviceSite, intYears, intDeviceCount, objOldestDevice, datOldestDevice
+	Dim intIndex, objSpares, intHighestValue, strModel, objLoanedSpares, intAvailableSpares, intLoanedSpares
+	Dim strAvailableSparesLabel, strLoanedSpareLabel, objReplacements, intReplacements, intReplacementLabel, objAvailableSpares
+
+	'Get the oldest device from the inventory
+	strSQL = "SELECT DatePurchased FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+	strSQL = strSQL & "WHERE DatePurchased Is Not Null AND Active=True AND Tag='Spare' AND (Model Like '%MacBook%' Or Model Like '%iPad%') AND Assigned=False ORDER BY DatePurchased"
+
+	Set objOldestDevice = Application("Connection").Execute(strSQL)
+	If Not objOldestDevice.EOF Then
+		datOldestDevice = objOldestDevice(0)
+		intYears = DatePart("yyyy",Date) - DatePart("yyyy",datOldestDevice)
+	End If
+
+	strSpareDevicesData = "['Device','Available',{ role: 'annotation' },'Loaned Out',{ role: 'annotation' },'Issued as Replacements',{ role: 'annotation' }],"
+	intHighestValue = 0
+
+	For intIndex = 1 to intYears
+
+		intAvailableSpares = 0
+		intLoanedSpares = 0
+
+		'Get the number of available spares
+		strSQL = "SELECT Site, Model, Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+		strSQL = strSQL & "WHERE Tag='Spare' AND Active=True AND (Model Like '%iPad%') AND ("
+		strSQL = strSQL & "DatePurchased>=#" & DateAdd("yyyy",intIndex * -1,Date) & "# AND "
+		strSQL = strSQL & "DatePurchased<=#" & DateAdd("yyyy",(intIndex -1) * -1,Date) & "#) "
+		strSQL = strSQL & "GROUP BY Site, Model"
+		Set objSpares = Application("Connection").Execute(strSQL)
+
+		Do Until objSpares.EOF
+
+			'Get the number of available spares
+			strSQL = "SELECT Site, Model, Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+			strSQL = strSQL & "WHERE Tag='Spare' AND Active=True AND (Model Like '%iPad%') AND Assigned=False AND Site='" & objSpares(0) & "' AND Assigned=False AND ("
+			strSQL = strSQL & "DatePurchased>=#" & DateAdd("yyyy",intIndex * -1,Date) & "# AND "
+			strSQL = strSQL & "DatePurchased<=#" & DateAdd("yyyy",(intIndex -1) * -1,Date) & "#) "
+			strSQL = strSQL & "GROUP BY Site, Model"
+			Set objAvailableSpares = Application("Connection").Execute(strSQL)
+
+			If objAvailableSpares.EOF Then
+				intAvailableSpares = 0
+			Else
+				intAvailableSpares = objAvailableSpares(2)
+			End If
+
+			'Get the number of loaned spares
+			strSQL = "SELECT Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+			strSQL = strSQL & "WHERE Tag='Spare' AND Active=True AND Model='" & objSpares(1) & "' AND Assigned=True AND ("
+			strSQL = strSQL & "DatePurchased>=#" & DateAdd("yyyy",intIndex * -1,Date) & "# AND "
+			strSQL = strSQL & "DatePurchased<=#" & DateAdd("yyyy",(intIndex -1) * -1,Date) & "#) AND "
+			strSQL = strSQL & "Site='" & objSpares(0) & "'"
+			Set objLoanedSpares = Application("Connection").Execute(strSQL)
+
+			'Get the number of devices issued as replacement
+			strSQL = "SELECT Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+			strSQL = strSQL & "WHERE Tag='Replacement' AND Active=True AND Model='" & objSpares(1) & "' AND Assigned=True AND ("
+			strSQL = strSQL & "DatePurchased>=#" & DateAdd("yyyy",intIndex * -1,Date) & "# AND "
+			strSQL = strSQL & "DatePurchased<=#" & DateAdd("yyyy",(intIndex -1) * -1,Date) & "#) AND "
+			strSQL = strSQL & "Site='" & objSpares(0) & "'"
+			Set objReplacements = Application("Connection").Execute(strSQL)
+
+			If Not objLoanedSpares.EOF Then
+				intLoanedSpares = objLoanedSpares(0)
+			Else
+				intLoanedSpares = 0
+			End If
+
+			If Not objReplacements.EOF Then
+				intReplacements = objReplacements(0)
+			Else
+				intReplacements = 0
+			End If
+
+			If intAvailableSpares <= 1 Then
+				strAvailableSparesLabel = ""
+			Else
+				strAvailableSparesLabel = intAvailableSpares
+			End If
+
+			If intReplacements = 0 Then
+				intReplacementLabel = ""
+			ElseIf intReplacements = 1 Then
+				intReplacementLabel = ""
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			Else
+				intReplacementLabel = intReplacements
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If intLoanedSpares <= 1 Then
+				strLoanedSpareLabel = ""
+			Else
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If intAvailableSpares + intLoanedSpares > intHighestValue Then
+			intHighestValue = intAvailableSpares + intLoanedSpares
+		 End If
+
+			Select Case objSpares(1)
+				Case "iPad Air", "iPad Air 1"
+					strModel = "Air 1"
+				Case "iPad Air 2"
+					strModel = "Air 2"
+				Case "iPad Pro 12.9"
+					strModel = "Pro 13"
+				Case "iPad Pro 9.7"
+					strModel = "Pro"
+				Case Else
+					strModel = objSpares(1)
+			End Select
+
+			Select Case objSpares(0)
+				Case "Elementary"
+					strDeviceSite = "ES"
+				Case "High School"
+					strDeviceSite = "HS"
+				Case Else
+					strDeviceSite  =objSpares(0)
+			End Select
+
+			strSpareDevicesData = strSpareDevicesData & "['" & strModel & " - " & strDeviceSite & " - Yr " & _
+			intIndex & "'," & intAvailableSpares & ",'" & strAvailableSparesLabel & "'," & intLoanedSpares & _
+			",'" & strLoanedSpareLabel & "'," & intReplacements & ",'" & intReplacementLabel & "'],"
+			objSpares.MoveNext
+		Loop
+
+	Next
+	strSpareDevicesData = Left(strSpareDevicesData,Len(strSpareDevicesData) - 1)%>
+
+	google.setOnLoadCallback(drawSpareiPads);
+
+	function drawSpareiPads() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strSpareDevicesData%>
+		]);
+
+		var options = {
+			titlePosition: 'none',
+			chartArea:{left:85, width:'90%', height:'85%'},
+			legend: 'none',
+			isStacked: true,
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {viewWindow: {max : <%=intHighestValue*1.2%>},minValue: 0},
+			vAxis: {title: ''}
+		};
+
+		var chart = new google.visualization.BarChart(document.getElementById('spareiPads'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			var dataFromChart = data.getValue(chart.getSelection()[0].row, 0).split('-')
+
+			var deviceModel = dataFromChart[0].trim();
+			var deviceSite = dataFromChart[1].trim();
+			var deviceYear = dataFromChart[2].trim();
+			deviceYear = deviceYear.substr(deviceYear.length - 1);
+
+			switch(deviceSite) {
+				case 'ES':
+					deviceSite = 'Elementary';
+					break;
+				case 'HS':
+					deviceSite = 'High School';
+					break;
+			}
+
+			switch(deviceModel) {
+				case 'Air 1':
+					deviceModel = 'iPad Air 1';
+					break;
+				case 'Air 2':
+					deviceModel = 'iPad Air 2';
+					break;
+				case 'Pro':
+					deviceModel = 'iPad Pro';
+					break;
+			}
+
+			window.open('devices.asp?Model=' + deviceModel + '&DeviceSite=' + deviceSite + '&Year=' + deviceYear + '&Tags=Spare&View=Table','_self');
+		}
+
+	}
+
+<%End Sub %>
+
+<%Sub SpareiPadsByGradeJavaScript
+
+	Dim strSQL, objSpareDevices, strSpareDevicesData, intDeviceYear, strDeviceName, strDeviceSite, intYears, objOldestDevice, datOldestDevice
+	Dim intIndex, objSpares, intHighestValue, strModel, objLoanedSpares, intAvailableSpares, intLoanedSpares, objAvailableSpares
+	Dim strAvailableSparesLabel, strLoanedSpareLabel, objReplacements, intReplacements, intReplacementLabel, strYear
+
+	'Get the current seniors graduating year
+	strYear = GetGraduationYear(4)
+
+	strSpareDevicesData = "['Device','Available',{ role: 'annotation' },'Loaned Out',{ role: 'annotation' },'Issued as Replacements',{ role: 'annotation' }],"
+	intHighestValue = 0
+
+	For intIndex = strYear to strYear + 4
+
+		'Get the number of spares
+		strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+		strSQL = strSQL & "FROM" & vbCRLF
+		strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+		strSQL = strSQL & "FROM(" & vbCRLF
+		strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+		strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+		strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Model Like '%iPad%')" & vbCRLF
+		strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare')" & vbCRLF
+		strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+		strSQL = strSQL & "WHERE TagCount=2"
+		Set objSpares = Application("Connection").Execute(strSQL)
+
+		If Not IsEmpty(objSpares) Then
+
+			'Get the number of available spares
+			strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+			strSQL = strSQL & "FROM" & vbCRLF
+			strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+			strSQL = strSQL & "FROM(" & vbCRLF
+			strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+			strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+			strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Assigned=False AND Model Like '%iPad%')" & vbCRLF
+			strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare')" & vbCRLF
+			strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+			strSQL = strSQL & "WHERE TagCount=2"
+			Set objAvailableSpares = Application("Connection").Execute(strSQL)
+
+			'Get the number of loaned spares
+			strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+			strSQL = strSQL & "FROM" & vbCRLF
+			strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+			strSQL = strSQL & "FROM(" & vbCRLF
+			strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+			strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+			strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Assigned=True AND Model Like '%iPad%')" & vbCRLF
+			strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare')" & vbCRLF
+			strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+			strSQL = strSQL & "WHERE TagCount=2"
+			Set objLoanedSpares = Application("Connection").Execute(strSQL)
+
+			'Get the number of devices issued as replacement
+			strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+			strSQL = strSQL & "FROM" & vbCRLF
+			strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+			strSQL = strSQL & "FROM(" & vbCRLF
+			strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+			strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+			strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Assigned=True AND Model Like '%iPad%')" & vbCRLF
+			strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare' OR Tags.Tag='Replacement')" & vbCRLF
+			strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+			strSQL = strSQL & "WHERE TagCount=3"
+			Set objReplacements = Application("Connection").Execute(strSQL)
+
+			If objAvailableSpares.EOF Then
+				intAvailableSpares = 0
+			Else
+				intAvailableSpares = objAvailableSpares(0)
+			End If
+
+			If Not objLoanedSpares.EOF Then
+				intLoanedSpares = objLoanedSpares(0)
+			Else
+				intLoanedSpares = 0
+			End If
+
+			If Not objReplacements.EOF Then
+				intReplacements = objReplacements(0)
+			Else
+				intReplacements = 0
+			End If
+
+			If intAvailableSpares <= 1 Then
+				strAvailableSparesLabel = ""
+			Else
+				strAvailableSparesLabel = intAvailableSpares
+			End If
+
+			If intReplacements = 0 Then
+				intReplacementLabel = ""
+			ElseIf intReplacements = 1 Then
+				intReplacementLabel = ""
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			Else
+				intReplacementLabel = intReplacements
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If intLoanedSpares <= 1 Then
+				strLoanedSpareLabel = ""
+			Else
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If intAvailableSpares + intLoanedSpares > intHighestValue Then
+			intHighestValue = intAvailableSpares + intLoanedSpares
+		 End If
+
+			strSpareDevicesData = strSpareDevicesData & "['" & intIndex & "'," & intAvailableSpares & _
+			",'" & strAvailableSparesLabel & "'," & intLoanedSpares & _
+			",'" & strLoanedSpareLabel & "'," & intReplacements & ",'" & intReplacementLabel & "'],"
+
+		End If
+
+	Next
+	strSpareDevicesData = Left(strSpareDevicesData,Len(strSpareDevicesData) - 1)%>
+
+	google.setOnLoadCallback(drawSpareiPads);
+
+	function drawSpareiPads() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strSpareDevicesData%>
+		]);
+
+		var options = {
+			titlePosition: 'none',
+			chartArea:{left:40, width:'90%', height:'85%'},
+			legend: 'none',
+			isStacked: true,
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {viewWindow: {max : <%=intHighestValue*1.1%>},minValue: 0},
+			vAxis: {title: ''}
+
+		};
+
+		var chart = new google.visualization.BarChart(document.getElementById('spareiPads'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			var deviceYear = data.getValue(chart.getSelection()[0].row, 0)
+			window.open('devices.asp?Model=iPad&Tags=Spare,' + deviceYear + '&View=Table','_self');
+		}
+
+	}
+
+<%End Sub %>
+
+<%Sub SpareiPadsByTypeJavaScript
+
+	Dim strSQL, objSpareDevices, strSpareDevicesData, intDeviceYear, strDeviceName, strDeviceSite, intYears, intDeviceCount, objOldestDevice, datOldestDevice
+	Dim intIndex, objSpares, intHighestValue, strModel, objLoanedSpares, intAvailableSpares, intLoanedSpares
+	Dim strAvailableSparesLabel, strLoanedSpareLabel, objReplacements, intReplacements, intReplacementLabel, objAvailableSpares
+
+	strSpareDevicesData = "['Device','Available',{ role: 'annotation' },'Loaned Out',{ role: 'annotation' },'Issued as Replacements',{ role: 'annotation' }],"
+	intHighestValue = 0
+	intAvailableSpares = 0
+	intLoanedSpares = 0
+
+	'Get the number of available spares
+	strSQL = "SELECT Model, Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+	strSQL = strSQL & "WHERE Tag='Spare' AND Active=True AND (Model Like '%iPad%') "
+	strSQL = strSQL & "GROUP BY Model"
+	Set objSpares = Application("Connection").Execute(strSQL)
+
+	'Get the number of available spares
+	strSQL = "SELECT Model, Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+	strSQL = strSQL & "WHERE Tag='Spare' AND Active=True AND (Model Like '%iPad%') AND Assigned=False "
+	strSQL = strSQL & "GROUP BY Model"
+	Set objAvailableSpares = Application("Connection").Execute(strSQL)
+
+	'Get the number of loaned spares
+	strSQL = "SELECT Model, Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+	strSQL = strSQL & "WHERE Tag='Spare' AND Active=True AND Assigned=True "
+	strSQL = strSQL & "GROUP BY Model"
+	Set objLoanedSpares = Application("Connection").Execute(strSQL)
+
+	'Get the number of devices issued as replacement
+	strSQL = "SELECT Model, Count(Devices.ID) AS CountofID FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag "
+	strSQL = strSQL & "WHERE Tag='Replacement' AND Active=True AND Assigned=True "
+	strSQL = strSQL & "GROUP BY Model"
+	Set objReplacements = Application("Connection").Execute(strSQL)
+
+	If Not objSpares.EOF Then
+		Do Until objSpares.EOF
+
+			strModel = objSpares(0)
+			intAvailableSpares = 0
+			intLoanedSpares = 0
+			intReplacements = 0
+
+			If objAvailableSpares.EOF Then
+				intAvailableSpares = 0
+			Else
+				Do Until objAvailableSpares.EOF
+					If strModel = objAvailableSpares(0) Then
+						intAvailableSpares = objAvailableSpares(1)
+					End If
+					objAvailableSpares.MoveNext
+				Loop
+				objAvailableSpares.MoveFirst
+			End If
+
+			If objLoanedSpares.EOF Then
+				intLoanedSpares = 0
+			Else
+				Do Until objLoanedSpares.EOF
+					If strModel = objLoanedSpares(0) Then
+						intLoanedSpares = objLoanedSpares(1)
+					End If
+					objLoanedSpares.MoveNext
+				Loop
+				objLoanedSpares.MoveFirst
+			End If
+
+			If objReplacements.EOF Then
+				intReplacements = 0
+			Else
+				Do Until objReplacements.EOF
+					If strModel = objReplacements(0) Then
+						intReplacements = objReplacements(1)
+					End If
+					objReplacements.MoveNext
+				Loop
+				objReplacements.MoveFirst
+			End If
+
+			If intAvailableSpares <= 1 Then
+				strAvailableSparesLabel = ""
+			Else
+				strAvailableSparesLabel = intAvailableSpares
+			End If
+
+			If intReplacements = 0 Then
+				intReplacementLabel = ""
+			ElseIf intReplacements = 1 Then
+				intReplacementLabel = ""
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			Else
+				intReplacementLabel = intReplacements
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If intLoanedSpares <= 1 Then
+				strLoanedSpareLabel = ""
+			Else
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If intAvailableSpares + intLoanedSpares > intHighestValue Then
+				intHighestValue = intAvailableSpares + intLoanedSpares
+			End If
+
+			If intLoanedSpares = "" Then
+				intLoanedSpares = 0
+			End If
+
+			If intReplacements = "" Then
+				intReplacements = 0
+			End If
+
+			strSpareDevicesData = strSpareDevicesData & "['" & strModel & _
+			intIndex & "'," & intAvailableSpares & ",'" & strAvailableSparesLabel & "'," & intLoanedSpares & _
+			",'" & strLoanedSpareLabel & "'," & intReplacements & ",'" & intReplacementLabel & "'],"
+			objSpares.MoveNext
+
+		Loop
+	End If
+
+	strSpareDevicesData = Left(strSpareDevicesData,Len(strSpareDevicesData) - 1)%>
+
+	google.setOnLoadCallback(drawSpareiPads);
+
+	function drawSpareiPads() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strSpareDevicesData%>
+		]);
+
+		var options = {
+			titlePosition: 'none',
+			chartArea:{left:85, width:'90%', height:'85%'},
+			legend: 'none',
+			isStacked: true,
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {viewWindow: {max : <%=intHighestValue*1.2%>},minValue: 0},
+			vAxis: {title: ''}
+		};
+
+		var chart = new google.visualization.BarChart(document.getElementById('spareiPads'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			var dataFromChart = data.getValue(chart.getSelection()[0].row, 0).split('-')
+
+			var deviceModel = dataFromChart[0].trim();
+
+			window.open('devices.asp?Model=' + deviceModel + '&Tags=Spare&View=Table','_self');
+		}
+
+	}
+
+<%End Sub %>
+
+<%Sub SpareChromebooksByGradeJavaScript
+
+	Dim strSQL, objSpareDevices, strSpareDevicesData, intDeviceYear, strDeviceName, strDeviceSite, intYears, objOldestDevice, datOldestDevice
+	Dim intIndex, objSpares, intHighestValue, strModel, objLoanedSpares, intAvailableSpares, intLoanedSpares, objAvailableSpares
+	Dim strAvailableSparesLabel, strLoanedSpareLabel, objReplacements, intReplacements, intReplacementLabel, strYear
+
+	'Get the current seniors graduating year
+	strYear = GetGraduationYear(12)
+
+	strSpareDevicesData = "['Device','Available',{ role: 'annotation' },'Loaned Out',{ role: 'annotation' },'Issued as Replacements',{ role: 'annotation' }],"
+	intHighestValue = 0
+
+	For intIndex = strYear to strYear + 5
+
+		'Get the number of spares
+		strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+		strSQL = strSQL & "FROM" & vbCRLF
+		strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+		strSQL = strSQL & "FROM(" & vbCRLF
+		strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+		strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+		strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND DeviceType Like '%Chromebook%')" & vbCRLF
+		strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare')" & vbCRLF
+		strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+		strSQL = strSQL & "WHERE TagCount=2"
+		Set objSpares = Application("Connection").Execute(strSQL)
+
+		If Not IsEmpty(objSpares) Then
+
+			'Get the number of available spares
+			strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+			strSQL = strSQL & "FROM" & vbCRLF
+			strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+			strSQL = strSQL & "FROM(" & vbCRLF
+			strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+			strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+			strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Assigned=False AND DeviceType Like '%Chromebook%')" & vbCRLF
+			strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare')" & vbCRLF
+			strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+			strSQL = strSQL & "WHERE TagCount=2"
+			Set objAvailableSpares = Application("Connection").Execute(strSQL)
+
+			'Get the number of loaned spares
+			strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+			strSQL = strSQL & "FROM" & vbCRLF
+			strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+			strSQL = strSQL & "FROM(" & vbCRLF
+			strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+			strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+			strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Assigned=True AND DeviceType Like '%Chromebook%')" & vbCRLF
+			strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare')" & vbCRLF
+			strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+			strSQL = strSQL & "WHERE TagCount=2"
+			Set objLoanedSpares = Application("Connection").Execute(strSQL)
+
+			'Get the number of devices issued as replacement
+			strSQL = "SELECT Count(TagCount) AS CountofCount" & vbCRLF
+			strSQL = strSQL & "FROM" & vbCRLF
+			strSQL = strSQL & "(SELECT Count(Tags.Tag) AS TagCount,Devices.LGTag" & vbCRLF
+			strSQL = strSQL & "FROM(" & vbCRLF
+			strSQL = strSQL & "SELECT Devices.ID, Devices.LGTag, Tags.Tag" & vbCRLF
+			strSQL = strSQL & "FROM Devices INNER JOIN Tags ON Devices.LGTag = Tags.LGTag" & vbCRLF
+			strSQL = strSQL & "WHERE Devices.Active=True AND Devices.Deleted=False AND Assigned=True AND DeviceType Like '%Chromebook%')" & vbCRLF
+			strSQL = strSQL & "WHERE (Tags.Tag='" & intIndex & "' OR Tags.Tag='Spare' OR Tags.Tag='Replacement')" & vbCRLF
+			strSQL = strSQL & "GROUP BY Devices.LGTag)" & vbCRLF
+			strSQL = strSQL & "WHERE TagCount=3"
+			Set objReplacements = Application("Connection").Execute(strSQL)
+
+			If objAvailableSpares.EOF Then
+				intAvailableSpares = 0
+			Else
+				intAvailableSpares = objAvailableSpares(0)
+			End If
+
+			If Not objLoanedSpares.EOF Then
+				intLoanedSpares = objLoanedSpares(0)
+			Else
+				intLoanedSpares = 0
+			End If
+
+			If Not objReplacements.EOF Then
+				intReplacements = objReplacements(0)
+			Else
+				intReplacements = 0
+			End If
+
+			If intAvailableSpares <= 1 Then
+				strAvailableSparesLabel = ""
+			Else
+				strAvailableSparesLabel = intAvailableSpares
+			End If
+
+			If intReplacements = 0 Then
+				intReplacementLabel = ""
+			ElseIf intReplacements = 1 Then
+				intReplacementLabel = ""
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			Else
+				intReplacementLabel = intReplacements
+				intLoanedSpares = intLoanedSpares - intReplacements
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If intLoanedSpares <= 1 Then
+				strLoanedSpareLabel = ""
+			Else
+				strLoanedSpareLabel = intLoanedSpares
+			End If
+
+			If (intAvailableSpares + intLoanedSpares + intReplacements) > intHighestValue Then
+			intHighestValue = (intAvailableSpares + intLoanedSpares + intReplacements)
+		End If
+
+			strSpareDevicesData = strSpareDevicesData & "['" & intIndex & "'," & intAvailableSpares & _
+			",'" & strAvailableSparesLabel & "'," & intLoanedSpares & _
+			",'" & strLoanedSpareLabel & "'," & intReplacements & ",'" & intReplacementLabel & "'],"
+
+		End If
+
+	Next
+	strSpareDevicesData = Left(strSpareDevicesData,Len(strSpareDevicesData) - 1)%>
+
+	google.setOnLoadCallback(drawSpareChromebooks);
+
+	function drawSpareChromebooks() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strSpareDevicesData%>
+		]);
+
+		var options = {
+			titlePosition: 'none',
+			chartArea:{left:40, width:'90%', height:'85%'},
+			legend: 'none',
+			isStacked: true,
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			hAxis: {viewWindow: {max : <%=intHighestValue*1.1%>},minValue: 0},
+			vAxis: {title: ''}
+
+		};
+
+		var chart = new google.visualization.BarChart(document.getElementById('spareChromebooks'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			var deviceYear = data.getValue(chart.getSelection()[0].row, 0)
+			window.open('devices.asp?DeviceType=Chromebook&Tags=Spare,' + deviceYear + '&View=Table','_self');
+		}
+
+	}
+
+<%End Sub %>
+
+<%Sub EventCategoriesJavaScript
+
+	Dim strSQL, objOldestDevice, datOldestDevice, intYears, intIndex, objSpares, intDeviceCount
+	Dim datStartDate, datEndDate, objEvents, strEventData
+
+	datStartDate = GetStartOfFiscalYear(Date)
+	datEndDate = Date
+
+	strSQL = "SELECT Category, Count(ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM Events" & vbCRLF
+	strSQL = strSQL & "WHERE Deleted=False AND EventDate>=#" & datStartDate & "# AND EventDate<=#" & datEndDate & "#" & vbCRLF
+	strSQL = strSQL & "GROUP BY Category" & vbCRLF 'ORDER BY Count(ID) DESC
+	Set objEvents = Application("Connection").Execute(strSQL)
+
+	strEventData = "['Category','Count',{ role: 'annotation' } ],"
+
+
+	If Not objEvents.EOF Then
+		Do Until objEvents.EOF
+			strEventData = strEventData & "['" & objEvents(0) & "', " & objEvents(1) & ",'" & datStartDate & "'],"
+			objEvents.MoveNext
+		Loop
+	End If%>
+
+	google.setOnLoadCallback(drawEventCategories);
+
+	function drawEventCategories() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strEventData%>
+		]);
+
+		var options = {
+			titlePosition: 'none',
+			chartArea:{width:'90%', height:'85%'},
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			is3D: 'true',
+			pieSliceText: 'value',
+			hAxis: {title: '', minValue: 0},
+			vAxis: {title: ''}
+		};
+
+		var chart = new google.visualization.PieChart(document.getElementById('eventCategories'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			window.open('events.asp?Category=' + data.getValue(chart.getSelection()[0].row, 0) + '&StartDate=' + data.getValue(chart.getSelection()[0].row, 2) + '&Complete=All&View=Table','_self');
+		}
+
+	}
+
+<%End Sub %>
+
+<%Sub EventTypesJavaScript
+
+	Dim strSQL, objOldestDevice, datOldestDevice, intYears, intIndex, objSpares, intDeviceCount
+	Dim datStartDate, datEndDate, objEvents, strEventData
+
+	datStartDate = GetStartOfFiscalYear(Date)
+	datEndDate = Date
+
+	strSQL = "SELECT Type, Count(ID) AS CountOfID" & vbCRLF
+	strSQL = strSQL & "FROM Events" & vbCRLF
+	strSQL = strSQL & "WHERE Deleted=False AND EventDate>=#" & datStartDate & "# AND EventDate<=#" & datEndDate & "#" & vbCRLF
+	strSQL = strSQL & "GROUP BY Type" & vbCRLF 'ORDER BY Count(ID) DESC
+	Set objEvents = Application("Connection").Execute(strSQL)
+
+	strEventData = "['Category','Count',{ role: 'annotation' } ],"
+
+	If Not objEvents.EOF Then
+		Do Until objEvents.EOF
+			strEventData = strEventData & "['" & objEvents(0) & "', " & objEvents(1) & ",'" & datStartDate & "'],"
+			objEvents.MoveNext
+		Loop
+	End If%>
+
+	google.setOnLoadCallback(drawEventTypes);
+
+	function drawEventTypes() {
+
+		var data = google.visualization.arrayToDataTable([
+			<%=strEventData%>
+		]);
+
+		var options = {
+			titlePosition: 'none',
+			chartArea:{width:'90%', height:'85%'},
+			//animation: {startup: 'true', duration: 1000, easing: 'out'},
+			is3D: 'true',
+			pieSliceText: 'value',
+			hAxis: {title: '', minValue: 0},
+			vAxis: {title: ''}
+		};
+
+		var chart = new google.visualization.PieChart(document.getElementById('eventTypes'));
+		chart.draw(data, options);
+
+		google.visualization.events.addListener(chart, 'select', selectHandler);
+
+		function selectHandler(e) {
+			window.open('events.asp?EventType=' + data.getValue(chart.getSelection()[0].row, 0) + '&StartDate=' + data.getValue(chart.getSelection()[0].row, 2) + '&Complete=All&View=Table','_self');
+		}
+
+	}
+
+<%End Sub %>
+
+<%Sub LookupDevice
+
+	Dim strSQLWhere, strSQL, objDeviceLookup, intDeviceCount
+
+	'Get the variables from the URL or form and fix it
+	intTag = Request.Form("Tag")
+	If intTag = "" then
+		intTag = Request.QueryString("Tag")
+	End If
+	If Not Application("UseLeadingZeros") Then
+		If IsNumeric(intTag) Then
+			intTag = Int(intTag)
+		Else
+			If Left(intTag,4) = "TECH" Then
+				intTag = Replace(intTag,"TECH","")
+				If IsNumeric(intTag) Then
+					intTag = Int(intTag)
+				End If
+			End If
+		End If
+	End If
+
+	If IsNumeric(intTag) Then
+		If intTag = 0 Then
+			intTag = ""
+		End If
+	End If
+
+	If intTag = "" Then
+		strDeviceMessage = "<div Class=""Error"">Device not found</div>"
+
+	Else
+
+		If intTag <> "" Then
+			strSQLWhere = strSQLWhere & "WHERE Devices.LGTag='" & Replace(intTag,"'","''") & "' AND "
+		End If
+
+		strSQLWhere = strSQLWhere & "Devices.Deleted=False"
+
+		strSQL = "SELECT ID, LGTag FROM Devices " & strSQLWhere
+		Set objDeviceLookup = Application("Connection").Execute(strSQL)
+
+		If Not objDeviceLookup.EOF Then
+			Response.Redirect("device.asp?Tag=" & intTag)
+		Else
+			strDeviceMessage = "<div Class=""Error"">Device not found</div>"
+		End If
+
+	End If
+
+End Sub%>
+
+<%Sub LookupUser
+
+	Dim  strSQL, objUserLookup, intUserCount, strURL, strSQLWhere
+
+	strFirstName = Request.Form("FirstName")
+	strLastName = Request.Form("LastName")
+	intUserCount = 0
+
+	If strFirstName = "" And strLastName = "" Then
+		strUserMessage = "<div Class=""Error"">User not found</div>"
+	Else
+
+		strSQLWhere = "WHERE "
+		strSQLWhere = strSQLWhere & "People.Active=True AND "
+		If strFirstName <> "" Then
+			strSQLWhere = strSQLWhere & "People.FirstName Like '%" & Replace(strFirstName,"'","''") & "%' AND "
+			strURL = strURL & "&FirstName=" & strFirstName
+		End If
+		If strLastName <> "" Then
+			strSQLWhere = strSQLWhere & "People.LastName Like '%" & Replace(strLastName,"'","''") & "%' AND "
+			strURL = strURL & "&LastName=" & strLastName
+		End If
+
+		strSQLWhere = strSQLWhere & "People.Deleted=False"
+
+		strSQL = "SELECT ID, UserName FROM People " & strSQLWhere
+		Set objUserLookup = Application("Connection").Execute(strSQL)
+
+		If Not objUserLookup.EOF Then
+			Do Until objUserLookup.EOF
+				intUserCount = intUserCount + 1
+				objUserLookup.MoveNext
+			Loop
+			objUserLookup.MoveFirst
+		End If
+
+		If strURL <> "" Then
+			strURL = Right(strURL, Len(strURL) - 1)
+		End If
+
+		Select Case intUserCount
+			Case 0
+				strUserMessage = "<div Class=""Error"">User not found</div>"
+			Case 1
+				Response.Redirect("user.asp?UserName=" & objUserLookup(1))
+			Case Else
+				Response.Redirect("users.asp?" & strURL)
+		End Select
+	End If
+
+End Sub%>
+
+<%Sub LookupEvent
+
+	Dim strSQL, objEventLookup, intEventCount
+
+	intEventNumber = Request.Form("EventNumber")
+
+	If intEventNumber = "" Then
+		strEventMessage = "<div Class=""Error"">No events found</div>"
+
+	Else
+
+		strSQL = "SELECT ID, LGTag FROM Events WHERE Deleted=False AND ID=" & intEventNumber
+		Set objEventLookup = Application("Connection").Execute(strSQL)
+
+		If Not objEventLookup.EOF Then
+			Response.Redirect("events.asp?EventNumber=" & intEventNumber)
+		Else
+			strEventMessage = "<div Class=""Error"">No events found</div>"
+		End If
+
+	End If
+
+End Sub%>
+
+<%Function GetStartOfFiscalYear(datToday)
+
+	If IsDate(datToday) Then
+		If Month(datToday) >= 7 Then
+			GetStartOfFiscalYear = "7/1/" & Year(datToday)
+		Else
+			GetStartOfFiscalYear = "7/1/" & Year(datToday) - 1
+		End If
+	Else
+		GetStartOfFiscalYear = GetStartOfFiscalYear(Date)
+	End If
+
+End Function%>
+
+<%Function GetGraduationYear(intGrade)
+
+	Dim datToday, intMonth, intCurrentYear
+
+	datToday = Date
+	intMonth = DatePart("m",datToday)
+	intCurrentYear = DatePart("yyyy",datToday)
+
+	If intMonth >= 7 And intMonth <= 12 Then
+		intCurrentYear = intCurrentYear + 1
+	End If
+
+	GetGraduationYear = intCurrentyear + (12 - intGrade)
+
+End Function %>
+
+<%Function GetGrade(intYear)
+
+	Dim datToday, intMonth, intCurrentYear
+
+	datToday = Date
+	intMonth = DatePart("m",datToday)
+	intCurrentYear = Right(DatePart("yyyy",datToday),2)
+	intYear = Right(intYear,2)
+
+	If intMonth >= 7 And intMonth <= 12 Then
+		intCurrentYear = intCurrentYear + 1
+	End If
+
+	GetGrade = 12 - (intYear - intCurrentYear)
+
+	Select Case GetGrade
+		
+		Case 0
+			GetGrade = "K"
+
+		Case -1 
+			GetGrade = "P"
+	
+	End Select
+
+End Function%>
+
 <%
-Function GetFirstandLastName(strUserName)
-
-   On Error Resume Next
-
-   Dim objConnection, objCommand, objRootDSE, objRecordSet,strDNSDomain
-
-   If Application("UseAD") Then
-      'Create objects required to connect to AD
-      Set objConnection = CreateObject("ADODB.Connection")
-      Set objCommand = CreateObject("ADODB.Command")
-      Set objRootDSE = GetObject("LDAP://" & Application("Domain") & "/rootDSE")
-
-      'Create a connection to AD
-      objConnection.Provider = "ADSDSOObject"
-
-      objConnection.Open "Active Directory Provider", Application("ADUsername"), Application("ADPassword")
-      objCommand.ActiveConnection = objConnection
-      strDNSDomain = objRootDSE.Get("DefaultNamingContext")
-      objCommand.CommandText = "<LDAP://" & Application("DomainController") & "/" & strDNSDomain & ">;(&(objectCategory=person)(objectClass=user)(samaccountname=" & strUserName & ")); GivenName,SN,name ;subtree"
-
-      'Initiate the LDAP query and return results to a RecordSet object.
-      Set objRecordSet = objCommand.Execute
-
-      If NOT objRecordSet.EOF Then
-         If objRecordSet(0) = "" Then
-            GetFirstandLastName = strUserName
-         Else
-            GetFirstandLastName = objRecordSet(0) & " " & objRecordSet(1)
-         End If
-      Else
-         GetFirstandLastName= strUserName
-      End If
-
-   Else
-      GetFirstandLastName= strUserName
-   End If
-
-End Function
+'Anything below here should exist on all pages
 %>
 
-<%
-Function BuildReturnLink(bolIncludeID)
+<%Sub DenyAccess
 
-   Dim strLinkID, strLinkLocation, strLinkStatus, strLinkTech, strLinkCategory, strLinkUser, strLinkFilter, strLinkProblem
-   Dim strLinkNotes, strLinkEMail, strLinkSort, strLinkDays, strLinkBack, strLinkViewed
+	'If we're not using basic authentication then send them to the login screen
+	If bolShowLogout Then
+		Response.Redirect("login.asp?action=logout")
+	Else
 
-   'Build the return link
-   If bolIncludeID Then
-      strLinkID = Request.QueryString("ID")
-   End If
-   strLinkLocation = Request.QueryString("Location")
-   strLinkStatus = Request.QueryString("Status")
-   strLinkTech = Request.QueryString("Tech")
-   strLinkCategory = Request.QueryString("Category")
-   strLinkUser = Request.QueryString("User")
-   strLinkFilter = Request.QueryString("Filter")
-   strLinkProblem = Request.QueryString("Problem")
-   strLinkNotes = Request.QueryString("Notes")
-   strLinkEMail = Request.QueryString("EMail")
-   strLinkSort = Request.QueryString("Sort")
-   strLinkDays = Request.QueryString("Days")
-   strLinkBack = Request.QueryString("Back")
-   strLinkViewed = Request.QueryString("Viewed")
+	SetupSite
 
-   If strLinkID <> "" Then
-      BuildReturnLink = BuildReturnLink & "&ID=" & Replace(strLinkID," ","%20")
-   End If   
-   If strLinkLocation <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Location=" & Replace(strLinkLocation," ","%20")
-   End If
-   If strLinkStatus <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Status=" & Replace(strLinkStatus," ","%20")
-   End If
-   If strLinkTech <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Tech=" & Replace(strLinkTech," ","%20")
-   End If
-   If strLinkCategory <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Category=" & Replace(strLinkCategory," ","%20")
-   End If
-   If strLinkUser <> "" Then
-      BuildReturnLink = BuildReturnLink & "&User=" & Replace(strLinkUser," ","%20")
-   End If
-   If strLinkFilter <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Filter=" & Replace(strLinkFilter," ","%20")
-   End If
-   If strLinkProblem <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Problem=" & Replace(strLinkProblem," ","%20")
-   End If
-   If strLinkNotes <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Notes=" & Replace(strLinkNotes," ","%20")
-   End If
-   If strLinkEMail <> "" Then
-      BuildReturnLink = BuildReturnLink & "&EMail=" & Replace(strLinkEMail," ","%20")
-   End If
-   If strLinkSort <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Sort=" & Replace(strLinkSort," ","%20")
-   End If
-   If strLinkBack <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Back=Yes"
-   End If
-   If strLinkDays <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Days=" & strLinkDays
-   End If
-   If strLinkViewed <> "" Then
-      BuildReturnLink = BuildReturnLink & "&Viewed=" & strLinkViewed
-   End If
-   
-   If BuildReturnLink <> "" Then
-      BuildReturnLink = "?" & Right(BuildReturnLink,(Len(BuildReturnLink)-1))
-   End If
+	%>
+	<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+	<html>
+	<head>
+		<title><%=Application("SiteName")%></title>
+		<link rel="stylesheet" type="text/css" href="../style.css" />
+		<link rel="apple-touch-icon" href="../images/inventory.png" />
+		<link rel="shortcut icon" href="../images/inventory.ico" />
+		<meta name="viewport" content="width=device-width" />
+	</head>
+	<body>
+		<center><b>Access Denied</b></center>
+	</body>
+	</html>
 
-End Function
-%>
+<%	End If
 
-<%
-Function GetUser
+End Sub%>
 
-   Const USERNAME = 1
+<%Function AccessGranted
 
-   Dim strUserAgent, strSessionID, objSessionLookup
-   
-   'Get some needed data
-   strSessionID = Request.Cookies("SessionID")
-   strUserAgent = Request.ServerVariables("HTTP_USER_AGENT")
-   
-   'Send them to the logon screen if they don't have a Session ID
-   If strSessionID = "" Then
-      SendToLogonScreen
+	Dim objNetwork, strUserAgent, strSQL, strRole, objNameCheckSet
 
-   'Get the username from the database
-   Else
-   
-      strSQL = "SELECT ID,UserName,SessionID,IPAddress,UserAgent,ExpirationDate FROM Sessions "
-      strSQL = strSQL & "WHERE UserAgent='" & Left(Replace(strUserAgent,"'","''"),250) & "' And SessionID='" & Replace(strSessionID,"'","''") & "'"
-      strSQL = strSQL & " And ExpirationDate > Date()"
-      Set objSessionLookup = Application("Connection").Execute(strSQL)
-      
-      'If a session isn't found for then kick them out
-      If objSessionLookup.EOF Then
-         SendToLogonScreen
-      Else
-         GetUser = objSessionLookup(USERNAME)
-      End If
-   End If  
-   
-End Function
-%>
+	'Redirect the user the SSL version if required
+	If Application("ForceSSL") Then
+		If Request.ServerVariables("SERVER_PORT")=80 Then
+			If Request.ServerVariables("QUERY_STRING") = "" Then
+				Response.Redirect "https://" & Request.ServerVariables("SERVER_NAME") & Request.ServerVariables("URL")
+			Else
+				Response.Redirect "https://" & Request.ServerVariables("SERVER_NAME") & Request.ServerVariables("URL") & "?" & Request.ServerVariables("QUERY_STRING")
+			End If
+		End If
+	End If
 
-<%
-Sub SendToLogonScreen
+	'Get the users logon name
+	Set objNetwork = CreateObject("WSCRIPT.Network")
+	strUser = objNetwork.UserName
+	strUserAgent = Request.ServerVariables("HTTP_USER_AGENT")
 
-   Dim strReturnLink, strSourcePage
-      
-   'Build the return link before sending them away.
-   strReturnLink = BuildReturnLink(True)
-   strSourcePage = Request.ServerVariables("SCRIPT_NAME")
-   strSourcePage = Right(strSourcePage,Len(strSourcePage) - InStrRev(strSourcePage,"/"))
-   If strReturnLink = "" Then
-      strReturnLink = "?SourcePage=" & strSourcePage
-   Else
-      strReturnLink = strReturnLink & "&SourcePage=" & strSourcePage
-   End If
-   
-   Response.Redirect("login.asp" & strReturnLink)
-   
-End Sub 
-%>
+	'Check and see if anonymous access is enabled
+	If LCase(Left(strUser,4)) = "iusr" Then
+		strUser = GetUser
+		bolShowLogout = True
+	Else
+		bolShowLogout = False
+	End If
 
-<%Sub VersionProblem %>
+	'Build the SQL string, this will check the userlevel of the user.
+	strSQL = "Select Role" & vbCRLF
+	strSQL = strSQL & "From Sessions" & vbCRLF
+	strSQL = strSQL & "WHERE UserName='" & strUser & "' And SessionID='" & Request.Cookies("SessionID") & "'"
+	Set objNameCheckSet = Application("Connection").Execute(strSQL)
+	strRole = objNameCheckSet(0)
 
-   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
-   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-   <html>
-   <head>
-      <title>HDL - Admin</title>
-      <link rel="stylesheet" type="text/css" href="../themes/<%=Application("Theme")%>/<%=Application("Theme")%>.css" />
-      <link rel="apple-touch-icon-precomposed" href="<%=Application("IconLocation")%>/ipadadminicon.png" />
-      <link rel="shortcut icon" href="<%=Application("IconLocation")%>/helpdesk.ico" />
-      <meta name="viewport" content="width=device-width" />
-   </head>
-   <body>
-      <center><b>Web and Database versions don't match</b></center>
-   </body>
-   </html>
+	If strRole = "Admin" Then
+		AccessGranted = True
+	Else
+		AccessGranted = False
+	End If
 
-<%
-   Response.End
+End Function%>
+
+<%Function GetUser
+
+	Const USERNAME = 1
+
+	Dim strUserAgent, strSessionID, objSessionLookup, strSQL
+
+	'Get some needed data
+	strSessionID = Request.Cookies("SessionID")
+	strUserAgent = Request.ServerVariables("HTTP_USER_AGENT")
+
+	'Send them to the logon screen if they don't have a Session ID
+	If strSessionID = "" Then
+		SendToLogonScreen
+
+	'Get the username from the database
+	Else
+
+		strSQL = "SELECT ID,UserName,SessionID,IPAddress,UserAgent,ExpirationDate FROM Sessions "
+		strSQL = strSQL & "WHERE UserAgent='" & Left(Replace(strUserAgent,"'","''"),250) & "' And SessionID='" & Replace(strSessionID,"'","''") & "'"
+		strSQL = strSQL & " And ExpirationDate > Date()"
+		Set objSessionLookup = Application("Connection").Execute(strSQL)
+
+		'If a session isn't found for then kick them out
+		If objSessionLookup.EOF Then
+			SendToLogonScreen
+		Else
+			GetUser = objSessionLookup(USERNAME)
+		End If
+	End If
+
+End Function%>
+
+<%Function IsMobile
+
+	Dim strUserAgent
+
+	'Get the User Agent from the client so we know what browser they are using
+	strUserAgent = Request.ServerVariables("HTTP_USER_AGENT")
+
+	'Check the user agent for signs they are on a mobile browser
+	If InStr(strUserAgent,"iPhone") Then
+		IsMobile = True
+	ElseIf InStr(strUserAgent,"iPad") Then
+		IsMobile = True
+	ElseIf InStr(strUserAgent,"Android") Then
+		IsMobile = True
+	ElseIf InStr(strUserAgent,"Windows Phone") Then
+		IsMobile = True
+	ElseIf InStr(strUserAgent,"BlackBerry") Then
+		IsMobile = True
+	ElseIf InStr(strUserAgent,"Nintendo") Then
+		IsMobile = True
+	ElseIf InStr(strUserAgent,"PlayStation Vita") Then
+		IsMobile = True
+	Else
+		IsMobile = False
+	End If
+
+	If InStr(strUserAgent,"Nexus 9") Then
+		IsMobile = False
+	End If
+End Function%>
+
+<%Function IsiPad
+
+	Dim strUserAgent
+
+	'Get the User Agent from the client so we know what browser they are using
+	strUserAgent = Request.ServerVariables("HTTP_USER_AGENT")
+
+	'Check the user agent for signs they are on a mobile browser
+	If InStr(strUserAgent,"iPad") Then
+		IsiPad = True
+	Else
+		IsiPad = False
+	End If
+
+End Function %>
+
+<%Sub SendToLogonScreen
+
+	Dim strReturnLink, strSourcePage
+
+	'Build the return link before sending them away.
+	strReturnLink =  "?" & Request.ServerVariables("QUERY_STRING")
+	strSourcePage = Request.ServerVariables("SCRIPT_NAME")
+	strSourcePage = Right(strSourcePage,Len(strSourcePage) - InStrRev(strSourcePage,"/"))
+	If strReturnLink = "?" Then
+		strReturnLink = "?SourcePage=" & strSourcePage
+	Else
+		strReturnLink = strReturnLink & "&SourcePage=" & strSourcePage
+	End If
+
+	Response.Redirect("login.asp" & strReturnLink)
+
+End Sub %>
+
+<%Sub SetupSite
+
+	If IsMobile Then
+		strSiteVersion = "Mobile"
+	Else
+		strSiteVersion = "Full"
+	End If
+
+	If Application("MultiColumn") Then
+		strColumns = "MultiColumn"
+		End If
 
 End Sub%>
