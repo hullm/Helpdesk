@@ -146,7 +146,7 @@ Sub AccessGranted
    End If
 
    'Make sure all the fields were filled out
-   If (strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " " Or strStatus = "New Assignment" Or strStatus = "Auto Assigned" Or strTech = "" Or (strStatus = "Complete" And strDBStatus = "Complete")) And (Upload.Form("cmdSubmit") <> "") Then
+   If (strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " " Or strStatus = "New Assignment" Or strStatus = "Auto Assigned" Or (strStatus = "Complete" And strDBStatus = "Complete")) And (Upload.Form("cmdSubmit") <> "") Then
       Select Case Upload.Form("cmdSubmit")
          Case "Save"
             strCMD = "Save"
@@ -723,7 +723,7 @@ End Function
    			<p style="margin-top: 0; margin-bottom: 0">
 
    <%    'Display any error messages if the form is missing anything
-         If (strCMD = "Save") And (strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " " Or strTech = "") Then %>
+         If (strCMD = "Save") And (strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " ") Then %>
             <font class="missing">Please fill out highlighted fields...</font>
 <%          bolUpdated = False
          End If
@@ -906,13 +906,16 @@ End Function
    					</select></td>
    				</tr>
    				<tr>
+               <td class="showborders" width="9%">Tech:</td>
 
-   <%             'Highlight the Tech label if it was blank when the form was submitted
-                  If (strCMD = "Save") And (strTech = "") Then %>
-                     <td class="showborders" width="9%"><font class="missing">Tech:</font></td>
-   <%             Else %>
-                     <td class="showborders" width="9%">Tech:</td>
-   <%             End If %>
+   <%
+   '              'Highlight the Tech label if it was blank when the form was submitted
+   '              If (strCMD = "Save") And (strTech = "") Then
+   '                   <td class="showborders" width="9%"><font class="missing">Tech:</font></td>
+   '              Else 
+   '                   <td class="showborders" width="9%">Tech:</td>
+   '              End If 
+   %>
 
    					<td class="showborders" >
    					<select size="1" name="Tech">
