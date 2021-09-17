@@ -723,7 +723,7 @@ End Function
    			<p style="margin-top: 0; margin-bottom: 0">
 
    <%    'Display any error messages if the form is missing anything
-         If (strCMD = "Save") And (strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " ") Then %>
+         If (strCMD = "Save") And ((strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " ") Or (strStatus = "Complete" AND strTech = "")) Then %>
             <font class="missing">Please fill out highlighted fields...</font>
 <%          bolUpdated = False
          End If
@@ -746,7 +746,7 @@ End Function
          If strCMD = "Save" And bolUpdated And Not bolCallClosed And Not bolTicketReOpened Then
             If strTechEmail <> "" Then %>
                <font class="information">Ticket Updated - EMail Sent to <%=strTechEmail%></font>
-<%          Else %>
+<%          ElseIf strStatus <> "Complete" Then %>
                <font class="information">Ticket Updated</font>
 <%          End If
          End If
@@ -794,7 +794,6 @@ End Function
    <%             End If %>
 
    					<td class="showborders" width="45%">
-
 
    <%             'Highlight the User label if it was blank when the form was submitted
                   If ((strCMD = "Save") And strUserTemp <> objRecordSet(Name)) or bolKeepData Then%>
@@ -906,16 +905,14 @@ End Function
    					</select></td>
    				</tr>
    				<tr>
-               <td class="showborders" width="9%">Tech:</td>
-
    <%
-   '              'Highlight the Tech label if it was blank when the form was submitted
-   '              If (strCMD = "Save") And (strTech = "") Then
-   '                   <td class="showborders" width="9%"><font class="missing">Tech:</font></td>
-   '              Else 
-   '                   <td class="showborders" width="9%">Tech:</td>
-   '              End If 
-   %>
+                'Highlight the Tech label if it was blank when the form was submitted
+                If (strStatus = "Complete") And (strTech = "") Then %>
+                     <td class="showborders" width="9%"><font class="missing">Tech:</font></td>
+   <%           Else %>
+                     <td class="showborders" width="9%">Tech:</td>
+   <%           End If %>
+   
 
    					<td class="showborders" >
    					<select size="1" name="Tech">
@@ -1407,7 +1404,7 @@ End Function
    <% End If %>
 
 		<%    'Display any error messages if the form is missing anything
-				If (strCMD = "Save") And (strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " " Or strTech = "") Then %>
+				If (strCMD = "Save") And ((strUserTemp = "" Or strEMailTemp = "" Or strLocation = "" Or strCategory = " ") Or (strStatus = "Complete" AND strTech = "")) Then %>
 					<div Class="TwoColumnCardMerged missing">Please fill out highlighted fields...</div>
 	<%          bolUpdated = False
 				End If
@@ -1430,7 +1427,7 @@ End Function
 				If strCMD = "Save" And bolUpdated And Not bolCallClosed And Not bolTicketReOpened Then
 					If strTechEmail <> "" Then %>
 						<div Class="TwoColumnCardMerged information">Ticket Updated - EMail Sent to <%=strTechEmail%></div>
-	<%          Else %>
+	<%          ElseIf strStatus <> "Complete" Then %>
 						<div Class="TwoColumnCardMerged information">Ticket Updated</div>
 	<%          End If
 				End If
@@ -1494,7 +1491,7 @@ End Function
          <div>
          	<div Class="TwoColumnCardColumn1">
 <%          'Highlight the Tech label if it was blank when the form was submitted
-            If (strCMD = "Save") And (strTech = "") Then %>
+            If (strStatus = "Complete") And (strTech = "") Then %>
                <font class="missing">Tech:</font>
 <%          Else %>
                Tech:
@@ -2127,7 +2124,7 @@ End Function
    End If
 
    'Send the User an email if the call was just closed
-   If strStatus = "Complete" = True Then
+   If strStatus = "Complete" And strTech <> "" Then
       TicketClosed
    End If
 
@@ -2143,7 +2140,7 @@ End Function
 
    UpdateLog
 
-   If strStatus = "Complete" Then
+   If strStatus = "Complete" And strTech <> "" Then
       strSQL = "SELECT ID,UpdateDate,UpdateTime" & vbCRLF
       strSQL = strSQL & "FROM Log" & vbCRLF
       strSQL = strSQL & "WHERE (NewValue='" & strOldTech & "' AND Ticket=" & intID & ")" & vbCRLF
@@ -2174,13 +2171,17 @@ End Function
       bolCallClosed = True
    End If
 
-   'Build the SQL string that will update the data in the database
-   strSQL = "Update Main" & vbCRLF
-   strSQL = strSQL & "Set Name = '" & strNewUserName & "',EMail = '" & strNewEMail & "',Location = '" & _
-   strNewLocation & "',Category = '" & strNewCategory & "',Notes = '" & _
-   strNewNotes & "',Status = '" & strStatus & "',Tech = '" & strTech & "',LastUpdatedDate = '" & _
-   strDate & "',LastUpdatedTime = '" & strTime & "',OpenTime = '" & strOpenTime & "'" & vbCRLF
-   strSQL = strSQL & "WHERE (((Main.ID)=" & intID & "));"
+   If strStatus <> "Complete" And strTech <> "" Then
+   
+      'Build the SQL string that will update the data in the database
+      strSQL = "Update Main" & vbCRLF
+      strSQL = strSQL & "Set Name = '" & strNewUserName & "',EMail = '" & strNewEMail & "',Location = '" & _
+      strNewLocation & "',Category = '" & strNewCategory & "',Notes = '" & _
+      strNewNotes & "',Status = '" & strStatus & "',Tech = '" & strTech & "',LastUpdatedDate = '" & _
+      strDate & "',LastUpdatedTime = '" & strTime & "',OpenTime = '" & strOpenTime & "'" & vbCRLF
+      strSQL = strSQL & "WHERE (((Main.ID)=" & intID & "));"
+
+   End If
 
    Application("Connection").Execute(strSQL)
    bolUpdated = True
@@ -3258,7 +3259,7 @@ End Sub%>
       objTracking.MoveNext
    Loop
 
-   If strStatus = "Complete" Then
+   If strStatus = "Complete" And strTech <> "" Then
       'Build the SQL string that will remove from the database who is tracking the ticket
       strSQL = "DELETE FROM Tracking" & vbCRLF
       strSQL = strSQL & "WHERE Ticket=" & intID
