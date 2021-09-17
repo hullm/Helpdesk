@@ -2171,7 +2171,7 @@ End Function
       bolCallClosed = True
    End If
 
-   If strStatus <> "Complete" And strTech <> "" Then
+   If strStatus <> "Complete" Or strTech <> "" Then
    
       'Build the SQL string that will update the data in the database
       strSQL = "Update Main" & vbCRLF
